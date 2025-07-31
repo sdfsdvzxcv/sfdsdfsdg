@@ -1,42 +1,17 @@
 // Global variables
-let currentUser = null;
 let poems = [];
 let authors = [];
 let currentPoem = null;
 let isAdmin = false;
 
-// API endpoint
-const API_BASE = 'http://localhost:5000/api';
-
-// Initialize app
-document.addEventListener('DOMContentLoaded', function() {
-    initializeApp();
-    setupEventListeners();
-    setupMobileMenu();
-    setupSmoothScrolling();
-    setupModals();
-    setupForms();
-    
-    // Load initial data
-    loadPoems();
-    loadAuthors();
-    loadStats();
-});
-
-// Initialize application
+// Initialize the application
 function initializeApp() {
-    // Check if user is admin (simple check for demo)
-    const adminParam = new URLSearchParams(window.location.search).get('admin');
-    if (adminParam === 'true') {
-        isAdmin = true;
-        document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'block');
-    }
-    
-    // Show home tab by default
+    setupEventListeners();
     showTab('home');
+    loadInitialData();
 }
 
-// Setup event listeners
+// Setup all event listeners
 function setupEventListeners() {
     // Tab navigation
     document.querySelectorAll('.nav-link').forEach(link => {
@@ -45,42 +20,20 @@ function setupEventListeners() {
             const tabName = this.getAttribute('data-tab');
             showTab(tabName);
             
-            // Update active nav link
             document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
             this.classList.add('active');
         });
     });
+
+    // Search and filter functionality
+    document.getElementById('poemSearch')?.addEventListener('input', filterPoems);
+    document.getElementById('genreFilter')?.addEventListener('change', filterPoems);
+    document.getElementById('authorFilter')?.addEventListener('change', filterPoems);
     
-    // Search functionality
-    const poemSearch = document.getElementById('poemSearch');
-    if (poemSearch) {
-        poemSearch.addEventListener('input', debounce(function() {
-            searchPoems();
-        }, 300));
-    }
-    
-    const authorSearch = document.getElementById('authorSearch');
-    if (authorSearch) {
-        authorSearch.addEventListener('input', debounce(function() {
-            searchAuthors();
-        }, 300));
-    }
-    
-    // Filter functionality
-    const genreFilter = document.getElementById('genreFilter');
-    if (genreFilter) {
-        genreFilter.addEventListener('change', function() {
-            filterPoems();
-        });
-    }
-    
-    const authorFilter = document.getElementById('authorFilter');
-    if (authorFilter) {
-        authorFilter.addEventListener('change', function() {
-            filterPoems();
-        });
-    }
-    
+    document.getElementById('authorSearch')?.addEventListener('input', filterAuthors);
+    document.getElementById('countryFilter')?.addEventListener('change', filterAuthors);
+    document.getElementById('periodFilter')?.addEventListener('change', filterAuthors);
+
     // Admin panel navigation
     document.querySelectorAll('.admin-nav-btn').forEach(btn => {
         btn.addEventListener('click', function() {
@@ -90,45 +43,41 @@ function setupEventListeners() {
             }
         });
     });
-    
-    // Admin forms
-    const addPoemForm = document.getElementById('addPoemForm');
-    if (addPoemForm) {
-        addPoemForm.addEventListener('submit', handleAddPoem);
-    }
-    
-    const addAuthorForm = document.getElementById('addAuthorForm');
-    if (addAuthorForm) {
-        addAuthorForm.addEventListener('submit', handleAddAuthor);
-    }
-    
-    // Broadcast type change
-    const broadcastType = document.getElementById('broadcastType');
-    if (broadcastType) {
-        broadcastType.addEventListener('change', function() {
-            const mediaInput = document.getElementById('mediaInput');
-            if (this.value !== 'text') {
-                mediaInput.style.display = 'block';
-            } else {
-                mediaInput.style.display = 'none';
-            }
+
+    // Modal functionality
+    document.querySelectorAll('.close').forEach(closeBtn => {
+        closeBtn.addEventListener('click', function() {
+            this.closest('.modal').style.display = 'none';
         });
-    }
+    });
+
+    window.addEventListener('click', function(e) {
+        if (e.target.classList.contains('modal')) {
+            e.target.style.display = 'none';
+        }
+    });
+
+    // Form submissions
+    document.getElementById('submitPoemForm')?.addEventListener('submit', handlePoemSubmission);
+    document.getElementById('addPoemForm')?.addEventListener('submit', handleAddPoem);
+    document.getElementById('addAuthorForm')?.addEventListener('submit', handleAddAuthor);
+
+    // File upload handling
+    document.getElementById('poemFile')?.addEventListener('change', handleFileUpload);
+    document.getElementById('broadcastType')?.addEventListener('change', handleBroadcastTypeChange);
 }
 
 // Show specific tab
 function showTab(tabName) {
-    // Hide all tab contents
     document.querySelectorAll('.tab-content').forEach(tab => {
         tab.classList.remove('active');
     });
     
-    // Show selected tab
     const selectedTab = document.getElementById(tabName);
     if (selectedTab) {
         selectedTab.classList.add('active');
     }
-    
+
     // Load tab-specific data
     switch(tabName) {
         case 'poems':
@@ -148,66 +97,30 @@ function showTab(tabName) {
     }
 }
 
-// Setup mobile menu
-function setupMobileMenu() {
-    const navToggle = document.querySelector('.nav-toggle');
-    const navMenu = document.querySelector('.nav-menu');
-    
-    if (navToggle && navMenu) {
-        navToggle.addEventListener('click', function() {
-            navMenu.classList.toggle('active');
-        });
-    }
-}
-
-// Setup smooth scrolling
-function setupSmoothScrolling() {
-    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-        anchor.addEventListener('click', function (e) {
-            e.preventDefault();
-            const target = document.querySelector(this.getAttribute('href'));
-            if (target) {
-                target.scrollIntoView({
-                    behavior: 'smooth'
-                });
-            }
-        });
-    });
-}
-
-// Setup modals
-function setupModals() {
-    // Close modal on X click
-    document.querySelectorAll('.close').forEach(closeBtn => {
-        closeBtn.addEventListener('click', function() {
-            this.closest('.modal').style.display = 'none';
-        });
-    });
-    
-    // Close modal on outside click
-    window.addEventListener('click', function(event) {
-        document.querySelectorAll('.modal').forEach(modal => {
-            if (event.target === modal) {
-                modal.style.display = 'none';
-            }
-        });
-    });
-}
-
-// Setup forms
-function setupForms() {
-    // File upload handling
-    const poemFile = document.getElementById('poemFile');
-    if (poemFile) {
-        poemFile.addEventListener('change', handleFileUpload);
+// Load initial data
+async function loadInitialData() {
+    try {
+        const [poemsData, authorsData] = await Promise.all([
+            apiRequest('/api/poems'),
+            apiRequest('/api/authors')
+        ]);
+        
+        poems = poemsData;
+        authors = authorsData;
+        
+        updateAuthorFilter();
+    } catch (error) {
+        console.error('Error loading initial data:', error);
+        showNotification('Ошибка загрузки данных', 'error');
     }
 }
 
 // API request helper
 async function apiRequest(endpoint, options = {}) {
+    showLoader();
+    
     try {
-        showLoader();
-        const response = await fetch(`${API_BASE}${endpoint}`, {
+        const response = await fetch(`http://localhost:5000${endpoint}`, {
             headers: {
                 'Content-Type': 'application/json',
                 ...options.headers
@@ -219,164 +132,130 @@ async function apiRequest(endpoint, options = {}) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         
-        return await response.json();
-    } catch (error) {
-        console.error('API request failed:', error);
-        showNotification('Ошибка при загрузке данных', 'error');
-        throw error;
-    } finally {
+        const data = await response.json();
         hideLoader();
+        return data;
+    } catch (error) {
+        hideLoader();
+        console.error('API request failed:', error);
+        showNotification('Ошибка соединения с сервером', 'error');
+        throw error;
     }
+}
+
+// Loader functions
+function showLoader() {
+    document.getElementById('loader').style.display = 'block';
+}
+
+function hideLoader() {
+    document.getElementById('loader').style.display = 'none';
 }
 
 // Load poems
 async function loadPoems() {
     try {
-        const data = await apiRequest('/poems');
-        poems = data;
-        renderPoems(poems);
-        updateAuthorFilter();
+        const data = await apiRequest('/api/poems');
+        renderPoems(data);
     } catch (error) {
-        console.error('Failed to load poems:', error);
+        console.error('Error loading poems:', error);
     }
+}
+
+// Render poems
+function renderPoems(poemsData) {
+    const grid = document.getElementById('poemsGrid');
+    if (!grid) return;
+
+    grid.innerHTML = poemsData.map(poem => `
+        <div class="poem-card" onclick="showPoemModal(${JSON.stringify(poem).replace(/"/g, '&quot;')})">
+            <h3>${poem.title}</h3>
+            <p><strong>Автор:</strong> ${poem.author_name}</p>
+            <p><strong>Жанр:</strong> ${poem.genre || 'Не указан'}</p>
+            <div class="poem-preview">${poem.text.substring(0, 150)}...</div>
+        </div>
+    `).join('');
 }
 
 // Load authors
 async function loadAuthors() {
     try {
-        const data = await apiRequest('/authors');
-        authors = data;
-        renderAuthors(authors);
+        const data = await apiRequest('/api/authors');
+        renderAuthors(data);
     } catch (error) {
-        console.error('Failed to load authors:', error);
+        console.error('Error loading authors:', error);
     }
-}
-
-// Load stats
-async function loadStats() {
-    try {
-        const data = await apiRequest('/stats');
-        updateStats(data);
-    } catch (error) {
-        console.error('Failed to load stats:', error);
-    }
-}
-
-// Render poems
-function renderPoems(poemsToRender) {
-    const grid = document.getElementById('poemsGrid');
-    if (!grid) return;
-    
-    grid.innerHTML = '';
-    
-    poemsToRender.forEach(poem => {
-        const card = document.createElement('div');
-        card.className = 'poem-card';
-        card.onclick = () => showPoemModal(poem);
-        
-        card.innerHTML = `
-            <h3>${poem.title}</h3>
-            <p>${poem.author_name || 'Неизвестный автор'}</p>
-            <div class="poem-preview">${poem.text.substring(0, 150)}...</div>
-        `;
-        
-        grid.appendChild(card);
-    });
 }
 
 // Render authors
-function renderAuthors(authorsToRender) {
+function renderAuthors(authorsData) {
     const grid = document.getElementById('authorsGrid');
     if (!grid) return;
-    
-    grid.innerHTML = '';
-    
-    authorsToRender.forEach(author => {
-        const card = document.createElement('div');
-        card.className = 'author-card';
-        card.onclick = () => showAuthorPoems(author);
-        
-        card.innerHTML = `
+
+    grid.innerHTML = authorsData.map(author => `
+        <div class="author-card" onclick="showAuthorPoems(${JSON.stringify(author).replace(/"/g, '&quot;')})">
             <h3>${author.name}</h3>
-            <p>${author.country || 'Неизвестная страна'}</p>
-            <p>${author.period || 'Неизвестный период'}</p>
-        `;
-        
-        grid.appendChild(card);
+            <p><strong>Страна:</strong> ${author.country || 'Не указана'}</p>
+            <p><strong>Период:</strong> ${author.period || 'Не указан'}</p>
+            <p><strong>Стихотворений:</strong> ${author.poem_count || 0}</p>
+        </div>
+    `).join('');
+}
+
+// Update author filter dropdown
+function updateAuthorFilter() {
+    const authorFilter = document.getElementById('authorFilter');
+    if (!authorFilter) return;
+
+    const currentValue = authorFilter.value;
+    authorFilter.innerHTML = '<option value="">Все авторы</option>';
+    
+    authors.forEach(author => {
+        const option = document.createElement('option');
+        option.value = author.name;
+        option.textContent = author.name;
+        authorFilter.appendChild(option);
     });
-}
 
-// Update stats
-function updateStats(stats) {
-    document.getElementById('totalUsers').textContent = stats.users || 0;
-    document.getElementById('totalPoems').textContent = stats.poems || 0;
-    document.getElementById('totalAuthors').textContent = stats.authors || 0;
-    document.getElementById('pendingSubmissions').textContent = stats.pending_submissions || 0;
-}
-
-// Search poems
-function searchPoems() {
-    const searchTerm = document.getElementById('poemSearch').value.toLowerCase();
-    const filteredPoems = poems.filter(poem => 
-        poem.title.toLowerCase().includes(searchTerm) ||
-        (poem.author_name && poem.author_name.toLowerCase().includes(searchTerm))
-    );
-    renderPoems(filteredPoems);
-}
-
-// Search authors
-function searchAuthors() {
-    const searchTerm = document.getElementById('authorSearch').value.toLowerCase();
-    const filteredAuthors = authors.filter(author => 
-        author.name.toLowerCase().includes(searchTerm)
-    );
-    renderAuthors(filteredAuthors);
+    if (currentValue) {
+        authorFilter.value = currentValue;
+    }
 }
 
 // Filter poems
 function filterPoems() {
-    const genreFilter = document.getElementById('genreFilter').value;
-    const authorFilter = document.getElementById('authorFilter').value;
-    
-    let filteredPoems = poems;
-    
-    if (genreFilter) {
-        filteredPoems = filteredPoems.filter(poem => poem.genre === genreFilter);
-    }
-    
-    if (authorFilter) {
-        filteredPoems = filteredPoems.filter(poem => poem.author_id == authorFilter);
-    }
-    
+    const searchTerm = document.getElementById('poemSearch')?.value.toLowerCase() || '';
+    const genreFilter = document.getElementById('genreFilter')?.value || '';
+    const authorFilter = document.getElementById('authorFilter')?.value || '';
+
+    const filteredPoems = poems.filter(poem => {
+        const matchesSearch = poem.title.toLowerCase().includes(searchTerm) ||
+                            poem.author_name.toLowerCase().includes(searchTerm) ||
+                            poem.text.toLowerCase().includes(searchTerm);
+        const matchesGenre = !genreFilter || poem.genre === genreFilter;
+        const matchesAuthor = !authorFilter || poem.author_name === authorFilter;
+
+        return matchesSearch && matchesGenre && matchesAuthor;
+    });
+
     renderPoems(filteredPoems);
 }
 
-// Update author filter
-function updateAuthorFilter() {
-    const authorFilter = document.getElementById('authorFilter');
-    if (!authorFilter) return;
-    
-    const uniqueAuthors = [...new Set(poems.map(poem => poem.author_name).filter(Boolean))];
-    
-    authorFilter.innerHTML = '<option value="">Все авторы</option>';
-    uniqueAuthors.forEach(author => {
-        const option = document.createElement('option');
-        option.value = author;
-        option.textContent = author;
-        authorFilter.appendChild(option);
-    });
-}
+// Filter authors
+function filterAuthors() {
+    const searchTerm = document.getElementById('authorSearch')?.value.toLowerCase() || '';
+    const countryFilter = document.getElementById('countryFilter')?.value || '';
+    const periodFilter = document.getElementById('periodFilter')?.value || '';
 
-// Get random poem
-async function getRandomPoem() {
-    try {
-        const data = await apiRequest('/poems/random');
-        if (data) {
-            showPoemModal(data);
-        }
-    } catch (error) {
-        console.error('Failed to get random poem:', error);
-    }
+    const filteredAuthors = authors.filter(author => {
+        const matchesSearch = author.name.toLowerCase().includes(searchTerm);
+        const matchesCountry = !countryFilter || author.country === countryFilter;
+        const matchesPeriod = !periodFilter || author.period === periodFilter;
+
+        return matchesSearch && matchesCountry && matchesPeriod;
+    });
+
+    renderAuthors(filteredAuthors);
 }
 
 // Show poem modal
@@ -384,29 +263,30 @@ function showPoemModal(poem) {
     currentPoem = poem;
     
     document.getElementById('modalPoemTitle').textContent = poem.title;
-    document.getElementById('modalPoemAuthor').textContent = poem.author_name || 'Неизвестный автор';
+    document.getElementById('modalPoemAuthor').textContent = `Автор: ${poem.author_name}`;
     document.getElementById('modalPoemText').textContent = poem.text;
     
     document.getElementById('poemModal').style.display = 'block';
 }
 
-// Save to library
+// Save poem to library
 async function saveToLibrary() {
     if (!currentPoem) return;
-    
+
     try {
-        await apiRequest('/library/save', {
+        const response = await apiRequest(`/api/library/1`, {
             method: 'POST',
             body: JSON.stringify({
                 poem_id: currentPoem.id,
                 user_id: 1 // Demo user ID
             })
         });
-        
-        showNotification('Стихотворение сохранено в библиотеку!', 'success');
-        document.getElementById('poemModal').style.display = 'none';
+
+        if (response.message) {
+            showNotification('Стихотворение добавлено в библиотеку!', 'success');
+        }
     } catch (error) {
-        console.error('Failed to save to library:', error);
+        console.error('Error saving to library:', error);
         showNotification('Ошибка при сохранении', 'error');
     }
 }
@@ -414,17 +294,16 @@ async function saveToLibrary() {
 // Share poem
 function sharePoem() {
     if (!currentPoem) return;
-    
-    const shareText = `${currentPoem.title}\n\n${currentPoem.author_name || 'Неизвестный автор'}\n\n${currentPoem.text}\n\nПоделено через Рильке`;
+
+    const text = `${currentPoem.title}\n\n${currentPoem.text}\n\nАвтор: ${currentPoem.author_name}\n\nПоделиться через Рильке`;
     
     if (navigator.share) {
         navigator.share({
             title: currentPoem.title,
-            text: shareText
+            text: text
         });
     } else {
-        // Fallback: copy to clipboard
-        navigator.clipboard.writeText(shareText).then(() => {
+        navigator.clipboard.writeText(text).then(() => {
             showNotification('Стихотворение скопировано в буфер обмена!', 'success');
         });
     }
@@ -432,7 +311,7 @@ function sharePoem() {
 
 // Show author poems
 function showAuthorPoems(author) {
-    const authorPoems = poems.filter(poem => poem.author_id === author.id);
+    const authorPoems = poems.filter(poem => poem.author_name === author.name);
     renderPoems(authorPoems);
     showTab('poems');
 }
@@ -440,53 +319,70 @@ function showAuthorPoems(author) {
 // Load library
 async function loadLibrary() {
     try {
-        const data = await apiRequest('/library/1'); // Demo user ID
+        const data = await apiRequest('/api/library/1');
         renderLibraryPoems(data);
-        updateLibraryStats(data);
+        updateLibraryStats();
     } catch (error) {
-        console.error('Failed to load library:', error);
+        console.error('Error loading library:', error);
     }
 }
 
 // Render library poems
-function renderLibraryPoems(libraryPoems) {
+function renderLibraryPoems(libraryData) {
     const container = document.getElementById('libraryPoems');
     if (!container) return;
-    
-    container.innerHTML = '';
-    
-    if (libraryPoems.length === 0) {
-        container.innerHTML = '<p class="text-center text-white">Ваша библиотека пуста</p>';
+
+    if (libraryData.length === 0) {
+        container.innerHTML = `
+            <div class="text-center">
+                <p style="color: rgba(255, 255, 255, 0.8);">Ваша библиотека пуста</p>
+                <button class="btn btn-primary" onclick="showTab('poems')">
+                    Найти стихотворения
+                </button>
+            </div>
+        `;
         return;
     }
-    
-    libraryPoems.forEach(poem => {
-        const card = document.createElement('div');
-        card.className = 'poem-card';
-        card.onclick = () => showPoemModal(poem);
-        
-        card.innerHTML = `
+
+    container.innerHTML = libraryData.map(poem => `
+        <div class="poem-card" onclick="showPoemModal(${JSON.stringify(poem).replace(/"/g, '&quot;')})">
             <h3>${poem.title}</h3>
-            <p>${poem.author_name || 'Неизвестный автор'}</p>
+            <p><strong>Автор:</strong> ${poem.author_name}</p>
+            <p><strong>Жанр:</strong> ${poem.genre || 'Не указан'}</p>
             <div class="poem-preview">${poem.text.substring(0, 150)}...</div>
-        `;
-        
-        container.appendChild(card);
-    });
+        </div>
+    `).join('');
 }
 
 // Update library stats
-function updateLibraryStats(libraryPoems) {
-    document.getElementById('savedPoemsCount').textContent = libraryPoems.length;
-    document.getElementById('quotesCount').textContent = '0'; // Demo value
+function updateLibraryStats() {
+    // Demo stats
+    document.getElementById('savedPoemsCount').textContent = '5';
+    document.getElementById('quotesCount').textContent = '12';
 }
 
-// Admin functions
+// Get random poem
+async function getRandomPoem() {
+    try {
+        const poem = await apiRequest('/api/poems/random');
+        showPoemModal(poem);
+    } catch (error) {
+        console.error('Error getting random poem:', error);
+        showNotification('Ошибка при получении случайного стихотворения', 'error');
+    }
+}
+
+// Scroll to section
+function scrollToSection(sectionId) {
+    showTab(sectionId);
+    document.getElementById(sectionId).scrollIntoView({ behavior: 'smooth' });
+}
+
+// Admin functionality
 function adminLogin() {
     const username = document.getElementById('adminUsername').value;
     const password = document.getElementById('adminPassword').value;
-    
-    // Simple demo login
+
     if (username === 'admin' && password === 'admin') {
         isAdmin = true;
         document.getElementById('adminLogin').style.display = 'none';
@@ -502,35 +398,28 @@ function adminLogout() {
     isAdmin = false;
     document.getElementById('adminLogin').style.display = 'block';
     document.getElementById('adminDashboard').style.display = 'none';
+    document.getElementById('adminUsername').value = '';
+    document.getElementById('adminPassword').value = '';
     showNotification('Выход из админ-панели', 'success');
 }
 
 function switchAdminPanel(panelName) {
-    // Hide all panels
-    document.querySelectorAll('.admin-panel').forEach(panel => {
-        panel.classList.remove('active');
-    });
-    
-    // Show selected panel
-    const selectedPanel = document.getElementById(panelName + 'Panel');
-    if (selectedPanel) {
-        selectedPanel.classList.add('active');
-    }
-    
-    // Update nav buttons
+    // Update navigation buttons
     document.querySelectorAll('.admin-nav-btn').forEach(btn => {
         btn.classList.remove('active');
     });
-    
-    const activeBtn = document.querySelector(`[data-panel="${panelName}"]`);
-    if (activeBtn) {
-        activeBtn.classList.add('active');
-    }
-    
+    event.target.classList.add('active');
+
+    // Show selected panel
+    document.querySelectorAll('.admin-panel').forEach(panel => {
+        panel.classList.remove('active');
+    });
+    document.getElementById(panelName + 'Panel').classList.add('active');
+
     // Load panel-specific data
     switch(panelName) {
         case 'stats':
-            loadStats();
+            loadAdminStats();
             break;
         case 'poems':
             loadAdminPoems();
@@ -544,331 +433,360 @@ function switchAdminPanel(panelName) {
     }
 }
 
-// Load admin data
 async function loadAdminData() {
     await Promise.all([
-        loadStats(),
+        loadAdminStats(),
         loadAdminPoems(),
         loadAdminAuthors(),
         loadAdminSubmissions()
     ]);
 }
 
-// Load admin poems
+async function loadAdminStats() {
+    try {
+        const stats = await apiRequest('/api/admin/stats');
+        document.getElementById('totalUsers').textContent = stats.total_users || 0;
+        document.getElementById('totalPoems').textContent = stats.total_poems || 0;
+        document.getElementById('totalAuthors').textContent = stats.total_authors || 0;
+        document.getElementById('pendingSubmissions').textContent = stats.pending_submissions || 0;
+    } catch (error) {
+        console.error('Error loading admin stats:', error);
+    }
+}
+
 async function loadAdminPoems() {
     try {
-        const data = await apiRequest('/admin/poems');
-        renderAdminPoems(data);
+        const poems = await apiRequest('/api/admin/poems');
+        renderAdminPoems(poems);
     } catch (error) {
-        console.error('Failed to load admin poems:', error);
+        console.error('Error loading admin poems:', error);
     }
 }
 
-// Load admin authors
-async function loadAdminAuthors() {
-    try {
-        const data = await apiRequest('/admin/authors');
-        renderAdminAuthors(data);
-    } catch (error) {
-        console.error('Failed to load admin authors:', error);
-    }
-}
-
-// Load admin submissions
-async function loadAdminSubmissions() {
-    try {
-        const data = await apiRequest('/admin/submissions');
-        renderAdminSubmissions(data);
-    } catch (error) {
-        console.error('Failed to load admin submissions:', error);
-    }
-}
-
-// Render admin poems
-function renderAdminPoems(poems) {
+function renderAdminPoems(poemsData) {
     const tbody = document.querySelector('#poemsTable tbody');
     if (!tbody) return;
-    
-    tbody.innerHTML = '';
-    
-    poems.forEach(poem => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
+
+    tbody.innerHTML = poemsData.map(poem => `
+        <tr>
             <td>${poem.id}</td>
             <td>${poem.title}</td>
-            <td>${poem.author_name || 'Неизвестный'}</td>
-            <td>${poem.genre || '-'}</td>
+            <td>${poem.author_name}</td>
+            <td>${poem.genre || 'Не указан'}</td>
             <td>
-                <button class="action-btn btn-edit" onclick="editPoem(${poem.id})">Изменить</button>
-                <button class="action-btn btn-delete" onclick="deletePoem(${poem.id})">Удалить</button>
+                <button class="action-btn btn-edit" onclick="editPoem(${poem.id})">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="action-btn btn-delete" onclick="deletePoem(${poem.id})">
+                    <i class="fas fa-trash"></i>
+                </button>
             </td>
-        `;
-        tbody.appendChild(row);
-    });
+        </tr>
+    `).join('');
 }
 
-// Render admin authors
-function renderAdminAuthors(authors) {
+async function loadAdminAuthors() {
+    try {
+        const authors = await apiRequest('/api/admin/authors');
+        renderAdminAuthors(authors);
+    } catch (error) {
+        console.error('Error loading admin authors:', error);
+    }
+}
+
+function renderAdminAuthors(authorsData) {
     const tbody = document.querySelector('#authorsTable tbody');
     if (!tbody) return;
-    
-    tbody.innerHTML = '';
-    
-    authors.forEach(author => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
+
+    tbody.innerHTML = authorsData.map(author => `
+        <tr>
             <td>${author.id}</td>
             <td>${author.name}</td>
-            <td>${author.country || '-'}</td>
-            <td>${author.period || '-'}</td>
+            <td>${author.country || 'Не указана'}</td>
+            <td>${author.period || 'Не указан'}</td>
             <td>
-                <button class="action-btn btn-edit" onclick="editAuthor(${author.id})">Изменить</button>
-                <button class="action-btn btn-delete" onclick="deleteAuthor(${author.id})">Удалить</button>
+                <button class="action-btn btn-edit" onclick="editAuthor(${author.id})">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="action-btn btn-delete" onclick="deleteAuthor(${author.id})">
+                    <i class="fas fa-trash"></i>
+                </button>
             </td>
-        `;
-        tbody.appendChild(row);
-    });
+        </tr>
+    `).join('');
 }
 
-// Render admin submissions
-function renderAdminSubmissions(submissions) {
+async function loadAdminSubmissions() {
+    try {
+        const submissions = await apiRequest('/api/admin/submissions');
+        renderAdminSubmissions(submissions);
+    } catch (error) {
+        console.error('Error loading admin submissions:', error);
+    }
+}
+
+function renderAdminSubmissions(submissionsData) {
     const container = document.getElementById('submissionsList');
     if (!container) return;
-    
-    container.innerHTML = '';
-    
-    if (submissions.length === 0) {
-        container.innerHTML = '<p class="text-center text-white">Нет предложений на модерации</p>';
+
+    if (submissionsData.length === 0) {
+        container.innerHTML = '<p style="color: rgba(255, 255, 255, 0.8);">Нет предложений для модерации</p>';
         return;
     }
-    
-    submissions.forEach(submission => {
-        const item = document.createElement('div');
-        item.className = 'submission-item';
-        item.innerHTML = `
+
+    container.innerHTML = submissionsData.map(submission => `
+        <div class="submission-item">
             <div class="submission-header">
-                <span class="submission-user">ID: ${submission.id}</span>
+                <span class="submission-user">Пользователь ${submission.user_id}</span>
                 <span class="submission-date">${new Date(submission.created_at).toLocaleDateString()}</span>
             </div>
-            <div class="submission-content">${submission.text}</div>
-            <div class="submission-actions">
-                <button class="btn btn-secondary" onclick="approveSubmission(${submission.id})">Одобрить</button>
-                <button class="btn btn-secondary" onclick="rejectSubmission(${submission.id})">Отклонить</button>
+            <div class="submission-content">
+                <strong>Название:</strong> ${submission.title}<br>
+                <strong>Автор:</strong> ${submission.author_name}<br>
+                <strong>Жанр:</strong> ${submission.genre || 'Не указан'}<br>
+                <strong>Текст:</strong><br>
+                ${submission.text.substring(0, 200)}...
             </div>
-        `;
-        container.appendChild(item);
-    });
+            <div class="submission-actions">
+                <button class="btn btn-primary" onclick="approveSubmission(${submission.id})">
+                    <i class="fas fa-check"></i>
+                    Одобрить
+                </button>
+                <button class="btn btn-secondary" onclick="rejectSubmission(${submission.id})">
+                    <i class="fas fa-times"></i>
+                    Отклонить
+                </button>
+            </div>
+        </div>
+    `).join('');
 }
 
-// Show add poem form
-function showAddPoemForm() {
-    document.getElementById('addPoemModal').style.display = 'block';
+// Admin actions
+function editPoem(poemId) {
+    showNotification('Функция редактирования в разработке', 'info');
 }
 
-// Show add author form
-function showAddAuthorForm() {
-    document.getElementById('addAuthorModal').style.display = 'block';
+function editAuthor(authorId) {
+    showNotification('Функция редактирования в разработке', 'info');
 }
 
-// Handle add poem
-async function handleAddPoem(e) {
+async function deletePoem(poemId) {
+    if (!confirm('Вы уверены, что хотите удалить это стихотворение?')) return;
+
+    try {
+        await apiRequest(`/api/admin/poems/${poemId}`, { method: 'DELETE' });
+        showNotification('Стихотворение удалено', 'success');
+        loadAdminPoems();
+    } catch (error) {
+        console.error('Error deleting poem:', error);
+        showNotification('Ошибка при удалении', 'error');
+    }
+}
+
+async function deleteAuthor(authorId) {
+    if (!confirm('Вы уверены, что хотите удалить этого автора?')) return;
+
+    try {
+        await apiRequest(`/api/admin/authors/${authorId}`, { method: 'DELETE' });
+        showNotification('Автор удален', 'success');
+        loadAdminAuthors();
+    } catch (error) {
+        console.error('Error deleting author:', error);
+        showNotification('Ошибка при удалении', 'error');
+    }
+}
+
+async function approveSubmission(submissionId) {
+    try {
+        await apiRequest(`/api/admin/submissions/${submissionId}/approve`, { method: 'POST' });
+        showNotification('Предложение одобрено', 'success');
+        loadAdminSubmissions();
+    } catch (error) {
+        console.error('Error approving submission:', error);
+        showNotification('Ошибка при одобрении', 'error');
+    }
+}
+
+async function rejectSubmission(submissionId) {
+    try {
+        await apiRequest(`/api/admin/submissions/${submissionId}/reject`, { method: 'POST' });
+        showNotification('Предложение отклонено', 'success');
+        loadAdminSubmissions();
+    } catch (error) {
+        console.error('Error rejecting submission:', error);
+        showNotification('Ошибка при отклонении', 'error');
+    }
+}
+
+// Poem submission handling
+async function handlePoemSubmission(e) {
     e.preventDefault();
     
     const formData = new FormData();
     formData.append('title', document.getElementById('poemTitle').value);
-    formData.append('text', document.getElementById('poemText').value);
-    formData.append('author_id', document.getElementById('poemAuthor').value);
+    formData.append('author_name', document.getElementById('poemAuthor').value);
     formData.append('genre', document.getElementById('poemGenre').value);
+    formData.append('text', document.getElementById('poemText').value);
     
     const file = document.getElementById('poemFile').files[0];
     if (file) {
         formData.append('file', file);
     }
-    
+
     try {
-        await fetch(`${API_BASE}/admin/upload-poem`, {
+        showLoader();
+        const response = await fetch('http://localhost:5000/api/submit-poem', {
             method: 'POST',
             body: formData
         });
-        
-        showNotification('Стихотворение добавлено!', 'success');
-        document.getElementById('addPoemModal').style.display = 'none';
-        document.getElementById('addPoemForm').reset();
-        loadAdminPoems();
+
+        if (response.ok) {
+            showNotification('Стихотворение отправлено на модерацию!', 'success');
+            clearPoemForm();
+        } else {
+            throw new Error('Ошибка отправки');
+        }
     } catch (error) {
-        console.error('Failed to add poem:', error);
-        showNotification('Ошибка при добавлении стихотворения', 'error');
+        console.error('Error submitting poem:', error);
+        showNotification('Ошибка при отправке стихотворения', 'error');
+    } finally {
+        hideLoader();
     }
 }
 
-// Handle add author
+function clearPoemForm() {
+    document.getElementById('submitPoemForm').reset();
+}
+
+function handleFileUpload(e) {
+    const file = e.target.files[0];
+    if (file) {
+        showNotification(`Файл "${file.name}" загружен`, 'success');
+    }
+}
+
+// Broadcast functionality
+function handleBroadcastTypeChange(e) {
+    const mediaInput = document.getElementById('mediaInput');
+    const broadcastType = e.target.value;
+    
+    if (broadcastType === 'text') {
+        mediaInput.style.display = 'none';
+    } else {
+        mediaInput.style.display = 'block';
+    }
+}
+
+async function sendBroadcast() {
+    const type = document.getElementById('broadcastType').value;
+    const text = document.getElementById('broadcastText').value;
+    const media = document.getElementById('broadcastMedia').files[0];
+
+    if (!text.trim()) {
+        showNotification('Введите текст сообщения', 'error');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('type', type);
+    formData.append('text', text);
+    if (media) {
+        formData.append('media', media);
+    }
+
+    try {
+        showLoader();
+        const response = await fetch('http://localhost:5000/api/admin/broadcast', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (response.ok) {
+            showNotification('Рассылка отправлена!', 'success');
+            document.getElementById('broadcastText').value = '';
+            document.getElementById('broadcastMedia').value = '';
+        } else {
+            throw new Error('Ошибка отправки рассылки');
+        }
+    } catch (error) {
+        console.error('Error sending broadcast:', error);
+        showNotification('Ошибка при отправке рассылки', 'error');
+    } finally {
+        hideLoader();
+    }
+}
+
+// Modal functions
+function showAddPoemForm() {
+    document.getElementById('addPoemModal').style.display = 'block';
+}
+
+function showAddAuthorForm() {
+    document.getElementById('addAuthorModal').style.display = 'block';
+}
+
+async function handleAddPoem(e) {
+    e.preventDefault();
+    
+    const formData = new FormData();
+    formData.append('title', document.getElementById('poemTitle').value);
+    formData.append('author_id', document.getElementById('poemAuthor').value);
+    formData.append('genre', document.getElementById('poemGenre').value);
+    formData.append('text', document.getElementById('poemText').value);
+    
+    const file = document.getElementById('poemFile').files[0];
+    if (file) {
+        formData.append('file', file);
+    }
+
+    try {
+        showLoader();
+        const response = await fetch('http://localhost:5000/api/admin/upload-poem', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (response.ok) {
+            showNotification('Стихотворение добавлено!', 'success');
+            document.getElementById('addPoemModal').style.display = 'none';
+            loadAdminPoems();
+        } else {
+            throw new Error('Ошибка добавления');
+        }
+    } catch (error) {
+        console.error('Error adding poem:', error);
+        showNotification('Ошибка при добавлении стихотворения', 'error');
+    } finally {
+        hideLoader();
+    }
+}
+
 async function handleAddAuthor(e) {
     e.preventDefault();
     
+    const authorData = {
+        name: document.getElementById('authorName').value,
+        country: document.getElementById('authorCountry').value,
+        period: document.getElementById('authorPeriod').value
+    };
+
     try {
-        await apiRequest('/admin/authors', {
+        await apiRequest('/api/admin/authors', {
             method: 'POST',
-            body: JSON.stringify({
-                name: document.getElementById('authorName').value,
-                country: document.getElementById('authorCountry').value,
-                period: document.getElementById('authorPeriod').value
-            })
+            body: JSON.stringify(authorData)
         });
         
         showNotification('Автор добавлен!', 'success');
         document.getElementById('addAuthorModal').style.display = 'none';
-        document.getElementById('addAuthorForm').reset();
         loadAdminAuthors();
     } catch (error) {
-        console.error('Failed to add author:', error);
+        console.error('Error adding author:', error);
         showNotification('Ошибка при добавлении автора', 'error');
     }
 }
 
-// Edit poem (placeholder)
-function editPoem(poemId) {
-    showNotification('Функция редактирования в разработке', 'error');
-}
-
-// Edit author (placeholder)
-function editAuthor(authorId) {
-    showNotification('Функция редактирования в разработке', 'error');
-}
-
-// Delete poem
-async function deletePoem(poemId) {
-    if (!confirm('Вы уверены, что хотите удалить это стихотворение?')) return;
-    
-    try {
-        await apiRequest(`/admin/poems/${poemId}`, {
-            method: 'DELETE'
-        });
-        
-        showNotification('Стихотворение удалено!', 'success');
-        loadAdminPoems();
-    } catch (error) {
-        console.error('Failed to delete poem:', error);
-        showNotification('Ошибка при удалении стихотворения', 'error');
-    }
-}
-
-// Delete author
-async function deleteAuthor(authorId) {
-    if (!confirm('Вы уверены, что хотите удалить этого автора?')) return;
-    
-    try {
-        await apiRequest(`/admin/authors/${authorId}`, {
-            method: 'DELETE'
-        });
-        
-        showNotification('Автор удален!', 'success');
-        loadAdminAuthors();
-    } catch (error) {
-        console.error('Failed to delete author:', error);
-        showNotification('Ошибка при удалении автора', 'error');
-    }
-}
-
-// Approve submission
-async function approveSubmission(submissionId) {
-    try {
-        await apiRequest(`/admin/submissions/${submissionId}/approve`, {
-            method: 'POST'
-        });
-        
-        showNotification('Предложение одобрено!', 'success');
-        loadAdminSubmissions();
-    } catch (error) {
-        console.error('Failed to approve submission:', error);
-        showNotification('Ошибка при одобрении предложения', 'error');
-    }
-}
-
-// Reject submission
-async function rejectSubmission(submissionId) {
-    try {
-        await apiRequest(`/admin/submissions/${submissionId}/reject`, {
-            method: 'POST'
-        });
-        
-        showNotification('Предложение отклонено!', 'success');
-        loadAdminSubmissions();
-    } catch (error) {
-        console.error('Failed to reject submission:', error);
-        showNotification('Ошибка при отклонении предложения', 'error');
-    }
-}
-
-// Send broadcast
-async function sendBroadcast() {
-    const type = document.getElementById('broadcastType').value;
-    const text = document.getElementById('broadcastText').value;
-    
-    if (!text.trim()) {
-        showNotification('Введите текст для рассылки', 'error');
-        return;
-    }
-    
-    try {
-        const formData = new FormData();
-        formData.append('type', type);
-        formData.append('text', text);
-        
-        const file = document.getElementById('broadcastMedia').files[0];
-        if (file) {
-            formData.append('media', file);
-        }
-        
-        await fetch(`${API_BASE}/admin/broadcast`, {
-            method: 'POST',
-            body: formData
-        });
-        
-        showNotification('Рассылка отправлена!', 'success');
-        document.getElementById('broadcastText').value = '';
-        document.getElementById('broadcastMedia').value = '';
-    } catch (error) {
-        console.error('Failed to send broadcast:', error);
-        showNotification('Ошибка при отправке рассылки', 'error');
-    }
-}
-
-// Handle file upload
-function handleFileUpload(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        // For demo purposes, just show the file name
-        showNotification(`Файл "${file.name}" загружен`, 'success');
-    };
-    reader.readAsText(file);
-}
-
-// Load more poems
-function loadMorePoems() {
-    showNotification('Функция загрузки дополнительных стихотворений в разработке', 'error');
-}
-
-// Scroll to section
-function scrollToSection(sectionId) {
-    const section = document.getElementById(sectionId);
-    if (section) {
-        section.scrollIntoView({ behavior: 'smooth' });
-    }
-}
-
 // Utility functions
-function showLoader() {
-    document.getElementById('loader').style.display = 'block';
-}
-
-function hideLoader() {
-    document.getElementById('loader').style.display = 'none';
-}
-
-function showNotification(message, type = 'success') {
+function showNotification(message, type = 'info') {
     const notification = document.createElement('div');
     notification.className = `message ${type}`;
     notification.textContent = message;
@@ -880,54 +798,5 @@ function showNotification(message, type = 'success') {
     }, 3000);
 }
 
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
-
-// Check authentication (demo)
-function checkAuth() {
-    // Demo authentication check
-    return true;
-}
-
-// Upload poem file
-async function uploadPoemFile() {
-    const fileInput = document.createElement('input');
-    fileInput.type = 'file';
-    fileInput.accept = '.txt,.doc,.docx,.pdf';
-    
-    fileInput.onchange = async function(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-        
-        const formData = new FormData();
-        formData.append('file', file);
-        
-        try {
-            const response = await fetch(`${API_BASE}/admin/upload-poem`, {
-                method: 'POST',
-                body: formData
-            });
-            
-            if (response.ok) {
-                showNotification('Файл успешно загружен и обработан!', 'success');
-                loadAdminPoems();
-            } else {
-                throw new Error('Upload failed');
-            }
-        } catch (error) {
-            console.error('Failed to upload file:', error);
-            showNotification('Ошибка при загрузке файла', 'error');
-        }
-    };
-    
-    fileInput.click();
-}
+// Initialize when DOM is loaded
+document.addEventListener('DOMContentLoaded', initializeApp);

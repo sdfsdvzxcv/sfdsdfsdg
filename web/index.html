@@ -20,7 +20,8 @@
                 <a href="#poems" class="nav-link" data-tab="poems">Стихотворения</a>
                 <a href="#authors" class="nav-link" data-tab="authors">Авторы</a>
                 <a href="#library" class="nav-link" data-tab="library">Библиотека</a>
-                <a href="#admin" class="nav-link admin-only" data-tab="admin">Админ</a>
+                <a href="#add-poem" class="nav-link" data-tab="add-poem">Добавить стих</a>
+                <a href="#admin" class="nav-link" data-tab="admin">Админ</a>
             </div>
             <div class="nav-toggle">
                 <span class="bar"></span>
@@ -185,8 +186,90 @@
             </div>
         </section>
 
+        <!-- Add Poem Tab -->
+        <section id="add-poem" class="tab-content">
+            <div class="section-header">
+                <h2>➕ Добавить стихотворение</h2>
+                <p>Предложите новое стихотворение для библиотеки</p>
+            </div>
+
+            <div class="add-poem-container">
+                <div class="add-poem-form">
+                    <form id="submitPoemForm">
+                        <div class="form-group">
+                            <label>Название стихотворения:</label>
+                            <input type="text" id="poemTitle" required placeholder="Введите название...">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Автор:</label>
+                            <select id="poemAuthor" required>
+                                <option value="">Выберите автора</option>
+                            </select>
+                            <button type="button" class="btn btn-secondary" onclick="showAddAuthorForm()">
+                                <i class="fas fa-plus"></i>
+                                Добавить нового автора
+                            </button>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Жанр:</label>
+                            <select id="poemGenre">
+                                <option value="">Выберите жанр</option>
+                                <option value="лирика">Лирика</option>
+                                <option value="эпика">Эпика</option>
+                                <option value="драма">Драма</option>
+                                <option value="сатира">Сатира</option>
+                                <option value="философская">Философская</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Текст стихотворения:</label>
+                            <textarea id="poemText" required placeholder="Введите текст стихотворения..." rows="10"></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Или загрузите файл:</label>
+                            <input type="file" id="poemFile" accept=".txt,.doc,.docx,.pdf">
+                            <small>Поддерживаются файлы: .txt, .doc, .docx, .pdf</small>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-paper-plane"></i>
+                                Отправить на модерацию
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="clearPoemForm()">
+                                <i class="fas fa-eraser"></i>
+                                Очистить форму
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                
+                <div class="add-poem-info">
+                    <h3>📝 Как добавить стихотворение</h3>
+                    <ul>
+                        <li>Заполните все обязательные поля</li>
+                        <li>Выберите автора из списка или добавьте нового</li>
+                        <li>Укажите жанр стихотворения</li>
+                        <li>Введите текст или загрузите файл</li>
+                        <li>Ваше предложение будет рассмотрено модератором</li>
+                    </ul>
+                    
+                    <div class="info-card">
+                        <h4>💡 Советы</h4>
+                        <p>• Проверьте правильность текста перед отправкой</p>
+                        <p>• Укажите точное название и автора</p>
+                        <p>• При загрузке файла текст будет извлечен автоматически</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <!-- Admin Tab -->
-        <section id="admin" class="tab-content admin-only">
+        <section id="admin" class="tab-content">
             <div class="section-header">
                 <h2>🔧 Панель администратора</h2>
                 <p>Управление контентом и пользователями</p>
@@ -208,6 +291,11 @@
                         <i class="fas fa-sign-in-alt"></i>
                         Войти
                     </button>
+                    <div class="login-hint">
+                        <p><strong>Демо доступ:</strong></p>
+                        <p>Логин: <code>admin</code></p>
+                        <p>Пароль: <code>admin</code></p>
+                    </div>
                 </div>
             </div>
 
