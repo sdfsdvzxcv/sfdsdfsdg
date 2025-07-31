@@ -1,86 +1,76 @@
 #!/usr/bin/env python3
 """
-Скрипт для запуска всех компонентов системы Рильке
+Запуск всех компонентов проекта "Рильке"
 """
 
-import os
-import sys
 import subprocess
-import time
+import sys
+import os
 import signal
-import threading
+import time
 from pathlib import Path
 
 def check_dependencies():
-    """Проверяет наличие необходимых зависимостей"""
-    try:
-        import aiogram
-        import flask
-        import sqlite3
-        print("✅ Все зависимости установлены")
-        return True
-    except ImportError as e:
-        print(f"❌ Отсутствует зависимость: {e}")
-        print("Установите зависимости: pip install -r requirements.txt")
+    """Проверка наличия необходимых зависимостей"""
+    required_files = ['bot.py', 'app.py', 'requirements.txt']
+    missing_files = []
+    
+    for file in required_files:
+        if not Path(file).exists():
+            missing_files.append(file)
+    
+    if missing_files:
+        print(f"❌ Отсутствуют необходимые файлы: {', '.join(missing_files)}")
         return False
+    
+    return True
 
 def check_env_file():
-    """Проверяет наличие файла .env"""
-    if not os.path.exists('.env'):
-        print("❌ Файл .env не найден")
-        print("Скопируйте .env.example в .env и настройте переменные окружения")
+    """Проверка наличия файла .env"""
+    if not Path('.env').exists():
+        print("⚠️  Файл .env не найден. Создайте его на основе .env.example")
+        print("   Для работы бота необходимо указать BOT_TOKEN и ADMIN_IDS")
         return False
-    
-    # Проверяем основные переменные
-    with open('.env', 'r') as f:
-        content = f.read()
-        if 'BOT_TOKEN' not in content or 'ADMIN_BOT_TOKEN' not in content:
-            print("⚠️  Не все переменные окружения настроены в .env")
-            print("Убедитесь, что BOT_TOKEN и ADMIN_BOT_TOKEN установлены")
-            return False
-    
-    print("✅ Файл .env настроен")
     return True
 
 def start_process(command, name):
-    """Запускает процесс и возвращает объект процесса"""
+    """Запуск процесса"""
     try:
         process = subprocess.Popen(
             command,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            bufsize=1,
-            universal_newlines=True
+            stderr=subprocess.STDOUT,
+            universal_newlines=True,
+            bufsize=1
         )
-        print(f"🚀 {name} запущен (PID: {process.pid})")
+        print(f"✅ {name} запущен (PID: {process.pid})")
         return process
     except Exception as e:
         print(f"❌ Ошибка запуска {name}: {e}")
         return None
 
 def monitor_process(process, name):
-    """Мониторит процесс и выводит его вывод"""
-    while process.poll() is None:
-        output = process.stdout.readline()
-        if output:
-            print(f"[{name}] {output.strip()}")
+    """Мониторинг процесса"""
+    if process is None:
+        return
     
-    # Выводим оставшийся вывод
-    remaining_output, error_output = process.communicate()
-    if remaining_output:
-        print(f"[{name}] {remaining_output.strip()}")
-    if error_output:
-        print(f"[{name} ERROR] {error_output.strip()}")
+    try:
+        for line in iter(process.stdout.readline, ''):
+            if line:
+                print(f"[{name}] {line.strip()}")
+    except KeyboardInterrupt:
+        print(f"\n🛑 Остановка {name}...")
+        process.terminate()
+        process.wait()
 
 def signal_handler(signum, frame):
     """Обработчик сигналов для корректного завершения"""
-    print("\n🛑 Получен сигнал завершения. Останавливаю процессы...")
+    print("\n🛑 Получен сигнал завершения. Останавливаю все процессы...")
     sys.exit(0)
 
 def main():
     """Основная функция запуска"""
-    print("🎭 Запуск системы Рильке")
+    print("🎭 Запуск проекта 'Рильке'")
     print("=" * 50)
     
     # Проверки
@@ -88,7 +78,7 @@ def main():
         sys.exit(1)
     
     if not check_env_file():
-        sys.exit(1)
+        print("⚠️  Продолжаем без проверки .env файла...")
     
     # Настройка обработчика сигналов
     signal.signal(signal.SIGINT, signal_handler)
@@ -99,71 +89,61 @@ def main():
     try:
         # Запуск Flask веб-приложения
         print("\n🌐 Запуск веб-приложения...")
-        web_process = start_process([sys.executable, 'app.py'], 'Web App')
-        if web_process:
-            processes.append(('Web App', web_process))
+        flask_process = start_process([sys.executable, 'app.py'], 'Flask App')
+        if flask_process:
+            processes.append(flask_process)
         
-        # Небольшая задержка для запуска веб-приложения
+        # Небольшая пауза для запуска Flask
         time.sleep(2)
         
-        # Запуск основного телеграм бота
-        print("\n🤖 Запуск основного телеграм бота...")
+        # Запуск Telegram бота
+        print("\n🤖 Запуск Telegram бота...")
         bot_process = start_process([sys.executable, 'bot.py'], 'Telegram Bot')
         if bot_process:
-            processes.append(('Telegram Bot', bot_process))
+            processes.append(bot_process)
         
-        # Небольшая задержка
-        time.sleep(1)
-        
-        # Запуск админ телеграм бота
-        print("\n👨‍💼 Запуск админ телеграм бота...")
-        admin_process = start_process([sys.executable, 'admin_bot.py'], 'Admin Bot')
-        if admin_process:
-            processes.append(('Admin Bot', admin_process))
-        
-        print("\n" + "=" * 50)
-        print("🎉 Все компоненты запущены!")
-        print("\n📱 Доступные сервисы:")
-        print("   🌐 Веб-приложение: http://localhost:5000")
-        print("   🤖 Основной бот: @your_bot_username")
-        print("   👨‍💼 Админ бот: @your_admin_bot_username")
-        print("\n💡 Для остановки нажмите Ctrl+C")
-        print("=" * 50)
+        print("\n✅ Все компоненты запущены!")
+        print("🌐 Веб-приложение: http://localhost:5000")
+        print("🤖 Telegram бот: активен")
+        print("\n📝 Логи процессов:")
+        print("-" * 50)
         
         # Мониторинг процессов
-        threads = []
-        for name, process in processes:
-            thread = threading.Thread(target=monitor_process, args=(process, name))
-            thread.daemon = True
-            thread.start()
-            threads.append(thread)
-        
-        # Ожидание завершения процессов
-        while True:
-            time.sleep(1)
-            for name, process in processes:
+        while processes:
+            for process in processes[:]:
                 if process.poll() is not None:
-                    print(f"⚠️  {name} завершился с кодом {process.returncode}")
-                    return
+                    print(f"⚠️  Процесс завершился (PID: {process.pid})")
+                    processes.remove(process)
+                else:
+                    # Читаем вывод процесса
+                    try:
+                        line = process.stdout.readline()
+                        if line:
+                            process_name = "Flask App" if process == flask_process else "Telegram Bot"
+                            print(f"[{process_name}] {line.strip()}")
+                    except:
+                        pass
+            
+            time.sleep(0.1)
     
     except KeyboardInterrupt:
-        print("\n🛑 Получен сигнал завершения")
-    except Exception as e:
-        print(f"❌ Ошибка: {e}")
+        print("\n🛑 Получен сигнал завершения...")
+    
     finally:
-        # Завершение всех процессов
-        print("\n🔄 Завершение процессов...")
-        for name, process in processes:
-            if process.poll() is None:
-                print(f"🛑 Остановка {name}...")
+        # Остановка всех процессов
+        print("🛑 Остановка всех процессов...")
+        for process in processes:
+            try:
                 process.terminate()
-                try:
-                    process.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    print(f"⚠️  Принудительное завершение {name}")
-                    process.kill()
+                process.wait(timeout=5)
+                print(f"✅ Процесс остановлен (PID: {process.pid})")
+            except subprocess.TimeoutExpired:
+                process.kill()
+                print(f"⚠️  Процесс принудительно остановлен (PID: {process.pid})")
+            except Exception as e:
+                print(f"❌ Ошибка остановки процесса: {e}")
         
-        print("✅ Все процессы завершены")
+        print("👋 Все процессы остановлены")
 
 if __name__ == "__main__":
     main()

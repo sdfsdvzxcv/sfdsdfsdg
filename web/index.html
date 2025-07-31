@@ -3,25 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Рильке - Маленький мостик к большой поэзии</title>
+    <title>Рильке - Мостик к большой поэзии</title>
     <link rel="stylesheet" href="styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <!-- Навигация -->
+    <!-- Navigation -->
     <nav class="navbar">
         <div class="nav-container">
             <div class="nav-logo">
-                <i class="fas fa-feather-alt"></i>
-                <span>Рильке</span>
+                <h2>🎭 Рильке</h2>
             </div>
             <div class="nav-menu">
-                <a href="#home" class="nav-link active">Главная</a>
-                <a href="#poems" class="nav-link">Стихи</a>
-                <a href="#authors" class="nav-link">Авторы</a>
-                <a href="#library" class="nav-link">Библиотека</a>
-                <a href="#admin" class="nav-link admin-link">Админ</a>
+                <a href="#home" class="nav-link active" data-tab="home">Главная</a>
+                <a href="#poems" class="nav-link" data-tab="poems">Стихотворения</a>
+                <a href="#authors" class="nav-link" data-tab="authors">Авторы</a>
+                <a href="#library" class="nav-link" data-tab="library">Библиотека</a>
+                <a href="#admin" class="nav-link admin-only" data-tab="admin">Админ</a>
             </div>
             <div class="nav-toggle">
                 <span class="bar"></span>
@@ -31,317 +30,350 @@
         </div>
     </nav>
 
-    <!-- Главная секция -->
-    <section id="home" class="hero">
-        <div class="hero-container">
-            <div class="hero-content">
-                <h1 class="hero-title">
-                    <span class="gradient-text">Рильке</span>
-                    <br>Маленький мостик к большой поэзии
-                </h1>
-                <p class="hero-subtitle">
-                    Пара кликов – и стихотворение уже на вашем экране, новое и случайное или искомое и давно любимое. 
-                    В метро, в пробке, очереди за кофе – всегда найдётся несколько минут обратиться к прекрасному.
-                </p>
-                <div class="hero-buttons">
-                    <button class="btn btn-primary" onclick="getRandomPoem()">
-                        <i class="fas fa-random"></i>
-                        Случайное стихотворение
-                    </button>
-                    <button class="btn btn-secondary" onclick="scrollToSection('poems')">
-                        <i class="fas fa-search"></i>
-                        Найти стихотворение
-                    </button>
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Home Tab -->
+        <section id="home" class="tab-content active">
+            <div class="hero">
+                <div class="hero-content">
+                    <h1 class="hero-title">Маленький мостик к большой поэзии</h1>
+                    <p class="hero-subtitle">Пара кликов – и стихотворение уже на вашем экране, новое и случайное или искомое и давно любимое.</p>
+                    <div class="hero-buttons">
+                        <button class="btn btn-primary" onclick="getRandomPoem()">
+                            <i class="fas fa-random"></i>
+                            Случайное стихотворение
+                        </button>
+                        <button class="btn btn-secondary" onclick="scrollToSection('poems')">
+                            <i class="fas fa-search"></i>
+                            Найти стихотворение
+                        </button>
+                    </div>
                 </div>
-            </div>
-            <div class="hero-visual">
-                <div class="floating-elements">
-                    <div class="floating-element" style="--delay: 0s">
-                        <i class="fas fa-feather"></i>
-                    </div>
-                    <div class="floating-element" style="--delay: 1s">
-                        <i class="fas fa-book-open"></i>
-                    </div>
-                    <div class="floating-element" style="--delay: 2s">
-                        <i class="fas fa-heart"></i>
+                <div class="hero-visual">
+                    <div class="floating-elements">
+                        <div class="floating-element">📖</div>
+                        <div class="floating-element">✨</div>
+                        <div class="floating-element">🎭</div>
                     </div>
                 </div>
             </div>
-        </div>
-    </section>
 
-    <!-- Секция стихов -->
-    <section id="poems" class="poems-section">
-        <div class="container">
-            <h2 class="section-title">Стихотворения</h2>
-            <div class="search-container">
+            <div class="features">
+                <div class="feature-card">
+                    <i class="fas fa-book-open"></i>
+                    <h3>Богатая библиотека</h3>
+                    <p>Тысячи стихотворений от классиков и современных авторов</p>
+                </div>
+                <div class="feature-card">
+                    <i class="fas fa-heart"></i>
+                    <h3>Личная библиотека</h3>
+                    <p>Сохраняйте понравившиеся стихи в свою коллекцию</p>
+                </div>
+                <div class="feature-card">
+                    <i class="fas fa-bell"></i>
+                    <h3>Регулярные уведомления</h3>
+                    <p>Получайте случайные стихотворения по расписанию</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Poems Tab -->
+        <section id="poems" class="tab-content">
+            <div class="section-header">
+                <h2>📖 Стихотворения</h2>
+                <p>Откройте для себя прекрасные произведения поэзии</p>
+            </div>
+
+            <div class="search-filters">
                 <div class="search-box">
-                    <input type="text" id="poemSearch" placeholder="Поиск по названию, автору или жанру...">
-                    <button class="search-btn" onclick="searchPoems()">
-                        <i class="fas fa-search"></i>
-                    </button>
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="poemSearch" placeholder="Поиск по названию или автору...">
                 </div>
-                <div class="filter-buttons">
-                    <button class="filter-btn active" data-filter="all">Все</button>
-                    <button class="filter-btn" data-filter="author">По автору</button>
-                    <button class="filter-btn" data-filter="genre">По жанру</button>
-                    <button class="filter-btn" data-filter="period">По периоду</button>
+                <div class="filters">
+                    <select id="genreFilter">
+                        <option value="">Все жанры</option>
+                        <option value="лирика">Лирика</option>
+                        <option value="эпика">Эпика</option>
+                        <option value="драма">Драма</option>
+                    </select>
+                    <select id="authorFilter">
+                        <option value="">Все авторы</option>
+                    </select>
                 </div>
             </div>
-            <div id="poemsGrid" class="poems-grid">
-                <!-- Стихи будут загружены динамически -->
+
+            <div class="poems-grid" id="poemsGrid">
+                <!-- Poems will be loaded here -->
             </div>
+
             <div class="load-more">
-                <button class="btn btn-outline" onclick="loadMorePoems()">
+                <button class="btn btn-secondary" onclick="loadMorePoems()">
                     <i class="fas fa-plus"></i>
                     Загрузить еще
                 </button>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- Секция авторов -->
-    <section id="authors" class="authors-section">
-        <div class="container">
-            <h2 class="section-title">Авторы</h2>
+        <!-- Authors Tab -->
+        <section id="authors" class="tab-content">
+            <div class="section-header">
+                <h2>👤 Авторы</h2>
+                <p>Познакомьтесь с великими поэтами</p>
+            </div>
+
+            <div class="search-filters">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="authorSearch" placeholder="Поиск автора...">
+                </div>
+                <div class="filters">
+                    <select id="countryFilter">
+                        <option value="">Все страны</option>
+                        <option value="Россия">Россия</option>
+                        <option value="США">США</option>
+                        <option value="Великобритания">Великобритания</option>
+                    </select>
+                    <select id="periodFilter">
+                        <option value="">Все периоды</option>
+                        <option value="Классицизм">Классицизм</option>
+                        <option value="Романтизм">Романтизм</option>
+                        <option value="Реализм">Реализм</option>
+                        <option value="Современность">Современность</option>
+                    </select>
+                </div>
+            </div>
+
             <div class="authors-grid" id="authorsGrid">
-                <!-- Авторы будут загружены динамически -->
+                <!-- Authors will be loaded here -->
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- Секция библиотеки -->
-    <section id="library" class="library-section">
-        <div class="container">
-            <h2 class="section-title">Личная библиотека</h2>
+        <!-- Library Tab -->
+        <section id="library" class="tab-content">
+            <div class="section-header">
+                <h2>📚 Личная библиотека</h2>
+                <p>Ваши сохраненные стихотворения</p>
+            </div>
+
+            <div class="library-stats">
+                <div class="stat-card">
+                    <i class="fas fa-book"></i>
+                    <div class="stat-info">
+                        <h3 id="savedPoemsCount">0</h3>
+                        <p>Сохранено стихов</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <i class="fas fa-quote-left"></i>
+                    <div class="stat-info">
+                        <h3 id="quotesCount">0</h3>
+                        <p>Выделенных цитат</p>
+                    </div>
+                </div>
+            </div>
+
             <div class="library-content">
-                <div class="library-sidebar">
-                    <div class="user-profile">
-                        <div class="profile-avatar">
-                            <i class="fas fa-user"></i>
-                        </div>
-                        <h3 class="profile-name">Пользователь</h3>
-                        <p class="profile-stats">
-                            <span id="savedPoemsCount">0</span> сохраненных стихов
-                        </p>
-                    </div>
-                    <div class="library-filters">
-                        <h4>Фильтры</h4>
-                        <div class="filter-group">
-                            <label>По автору:</label>
-                            <select id="libraryAuthorFilter">
-                                <option value="">Все авторы</option>
-                            </select>
-                        </div>
-                        <div class="filter-group">
-                            <label>По дате добавления:</label>
-                            <select id="libraryDateFilter">
-                                <option value="">Все время</option>
-                                <option value="week">За неделю</option>
-                                <option value="month">За месяц</option>
-                                <option value="year">За год</option>
-                            </select>
-                        </div>
-                    </div>
+                <div class="library-filters">
+                    <button class="filter-btn active" data-filter="all">Все</button>
+                    <button class="filter-btn" data-filter="recent">Недавние</button>
+                    <button class="filter-btn" data-filter="favorites">Избранные</button>
                 </div>
-                <div class="library-main">
-                    <div id="libraryPoems" class="library-poems">
-                        <!-- Сохраненные стихи будут загружены динамически -->
-                    </div>
+
+                <div class="library-poems" id="libraryPoems">
+                    <!-- Library poems will be loaded here -->
                 </div>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- Админ панель -->
-    <section id="admin" class="admin-section">
-        <div class="container">
-            <h2 class="section-title">Админ панель</h2>
-            <div class="admin-login" id="adminLogin">
+        <!-- Admin Tab -->
+        <section id="admin" class="tab-content admin-only">
+            <div class="section-header">
+                <h2>🔧 Панель администратора</h2>
+                <p>Управление контентом и пользователями</p>
+            </div>
+
+            <!-- Admin Login -->
+            <div id="adminLogin" class="admin-login">
                 <div class="login-form">
-                    <h3>Вход в админ панель</h3>
-                    <input type="text" id="adminUsername" placeholder="Имя пользователя">
-                    <input type="password" id="adminPassword" placeholder="Пароль">
-                    <button class="btn btn-primary" onclick="adminLogin()">Войти</button>
+                    <h3>Вход в админ-панель</h3>
+                    <div class="form-group">
+                        <label>Логин:</label>
+                        <input type="text" id="adminUsername" placeholder="Введите логин">
+                    </div>
+                    <div class="form-group">
+                        <label>Пароль:</label>
+                        <input type="password" id="adminPassword" placeholder="Введите пароль">
+                    </div>
+                    <button class="btn btn-primary" onclick="adminLogin()">
+                        <i class="fas fa-sign-in-alt"></i>
+                        Войти
+                    </button>
                 </div>
             </div>
-            <div class="admin-panel" id="adminPanel" style="display: none;">
-                <div class="admin-sidebar">
-                    <div class="admin-menu">
-                        <button class="admin-menu-item active" data-panel="dashboard">
-                            <i class="fas fa-chart-bar"></i>
-                            Дашборд
-                        </button>
-                        <button class="admin-menu-item" data-panel="poems">
+
+            <!-- Admin Dashboard -->
+            <div id="adminDashboard" class="admin-dashboard" style="display: none;">
+                <div class="admin-nav">
+                    <button class="admin-nav-btn active" data-panel="stats">📊 Статистика</button>
+                    <button class="admin-nav-btn" data-panel="poems">📝 Стихотворения</button>
+                    <button class="admin-nav-btn" data-panel="authors">👤 Авторы</button>
+                    <button class="admin-nav-btn" data-panel="submissions">📨 Модерация</button>
+                    <button class="admin-nav-btn" data-panel="broadcast">📢 Рассылка</button>
+                    <button class="admin-nav-btn" onclick="adminLogout()">
+                        <i class="fas fa-sign-out-alt"></i>
+                        Выйти
+                    </button>
+                </div>
+
+                <!-- Stats Panel -->
+                <div id="statsPanel" class="admin-panel active">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <i class="fas fa-users"></i>
+                            <div class="stat-info">
+                                <h3 id="totalUsers">0</h3>
+                                <p>Пользователей</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
                             <i class="fas fa-book"></i>
-                            Управление стихами
-                        </button>
-                        <button class="admin-menu-item" data-panel="authors">
+                            <div class="stat-info">
+                                <h3 id="totalPoems">0</h3>
+                                <p>Стихотворений</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
                             <i class="fas fa-user-edit"></i>
-                            Управление авторами
-                        </button>
-                        <button class="admin-menu-item" data-panel="broadcast">
-                            <i class="fas fa-broadcast-tower"></i>
-                            Рассылка
-                        </button>
-                        <button class="admin-menu-item" data-panel="submissions">
-                            <i class="fas fa-inbox"></i>
-                            Предложения
-                        </button>
-                        <button class="admin-menu-item" onclick="adminLogout()">
-                            <i class="fas fa-sign-out-alt"></i>
-                            Выйти
-                        </button>
+                            <div class="stat-info">
+                                <h3 id="totalAuthors">0</h3>
+                                <p>Авторов</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <i class="fas fa-clock"></i>
+                            <div class="stat-info">
+                                <h3 id="pendingSubmissions">0</h3>
+                                <p>Ожидают модерации</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="admin-main">
-                    <!-- Дашборд -->
-                    <div id="dashboardPanel" class="admin-panel-content active">
-                        <h3>Дашборд</h3>
-                        <div class="stats-grid">
-                            <div class="stat-card">
-                                <div class="stat-icon">
-                                    <i class="fas fa-users"></i>
-                                </div>
-                                <div class="stat-content">
-                                    <h4 id="totalUsers">0</h4>
-                                    <p>Пользователей</p>
-                                </div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-icon">
-                                    <i class="fas fa-book"></i>
-                                </div>
-                                <div class="stat-content">
-                                    <h4 id="totalPoems">0</h4>
-                                    <p>Стихотворений</p>
-                                </div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-icon">
-                                    <i class="fas fa-user-edit"></i>
-                                </div>
-                                <div class="stat-content">
-                                    <h4 id="totalAuthors">0</h4>
-                                    <p>Авторов</p>
-                                </div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-icon">
-                                    <i class="fas fa-inbox"></i>
-                                </div>
-                                <div class="stat-content">
-                                    <h4 id="pendingSubmissions">0</h4>
-                                    <p>Предложений</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
 
-                    <!-- Управление стихами -->
-                    <div id="poemsPanel" class="admin-panel-content">
+                <!-- Poems Panel -->
+                <div id="poemsPanel" class="admin-panel">
+                    <div class="panel-header">
                         <h3>Управление стихотворениями</h3>
-                        <div class="admin-actions">
-                            <button class="btn btn-primary" onclick="showAddPoemForm()">
-                                <i class="fas fa-plus"></i>
-                                Добавить стихотворение
-                            </button>
-                            <button class="btn btn-secondary" onclick="uploadPoemFile()">
-                                <i class="fas fa-upload"></i>
-                                Загрузить из файла
-                            </button>
-                        </div>
-                        <div class="admin-table-container">
-                            <table class="admin-table" id="poemsTable">
-                                <thead>
-                                    <tr>
-                                        <th>Название</th>
-                                        <th>Автор</th>
-                                        <th>Жанр</th>
-                                        <th>Дата</th>
-                                        <th>Действия</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="poemsTableBody">
-                                    <!-- Данные будут загружены динамически -->
-                                </tbody>
-                            </table>
-                        </div>
+                        <button class="btn btn-primary" onclick="showAddPoemForm()">
+                            <i class="fas fa-plus"></i>
+                            Добавить стихотворение
+                        </button>
                     </div>
+                    <div class="admin-table-container">
+                        <table class="admin-table" id="poemsTable">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Название</th>
+                                    <th>Автор</th>
+                                    <th>Жанр</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Poems will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
 
-                    <!-- Управление авторами -->
-                    <div id="authorsPanel" class="admin-panel-content">
+                <!-- Authors Panel -->
+                <div id="authorsPanel" class="admin-panel">
+                    <div class="panel-header">
                         <h3>Управление авторами</h3>
-                        <div class="admin-actions">
-                            <button class="btn btn-primary" onclick="showAddAuthorForm()">
-                                <i class="fas fa-plus"></i>
-                                Добавить автора
-                            </button>
-                        </div>
-                        <div class="admin-table-container">
-                            <table class="admin-table" id="authorsTable">
-                                <thead>
-                                    <tr>
-                                        <th>Имя</th>
-                                        <th>Страна</th>
-                                        <th>Период</th>
-                                        <th>Стихов</th>
-                                        <th>Действия</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="authorsTableBody">
-                                    <!-- Данные будут загружены динамически -->
-                                </tbody>
-                            </table>
-                        </div>
+                        <button class="btn btn-primary" onclick="showAddAuthorForm()">
+                            <i class="fas fa-plus"></i>
+                            Добавить автора
+                        </button>
                     </div>
-
-                    <!-- Рассылка -->
-                    <div id="broadcastPanel" class="admin-panel-content">
-                        <h3>Рассылка</h3>
-                        <div class="broadcast-form">
-                            <div class="form-group">
-                                <label>Тип сообщения:</label>
-                                <select id="broadcastType">
-                                    <option value="text">Текстовое сообщение</option>
-                                    <option value="photo">Фото</option>
-                                    <option value="video">Видео</option>
-                                    <option value="gif">GIF</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Текст сообщения:</label>
-                                <textarea id="broadcastText" placeholder="Введите текст для рассылки..."></textarea>
-                            </div>
-                            <div class="form-group" id="broadcastMediaGroup" style="display: none;">
-                                <label>Медиа файл:</label>
-                                <input type="file" id="broadcastMedia" accept="image/*,video/*">
-                            </div>
-                            <button class="btn btn-primary" onclick="sendBroadcast()">
-                                <i class="fas fa-paper-plane"></i>
-                                Отправить рассылку
-                            </button>
-                        </div>
+                    <div class="admin-table-container">
+                        <table class="admin-table" id="authorsTable">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Имя</th>
+                                    <th>Страна</th>
+                                    <th>Период</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Authors will be loaded here -->
+                            </tbody>
+                        </table>
                     </div>
+                </div>
 
-                    <!-- Предложения -->
-                    <div id="submissionsPanel" class="admin-panel-content">
-                        <h3>Предложения пользователей</h3>
-                        <div id="submissionsList" class="submissions-list">
-                            <!-- Предложения будут загружены динамически -->
+                <!-- Submissions Panel -->
+                <div id="submissionsPanel" class="admin-panel">
+                    <div class="panel-header">
+                        <h3>Модерация предложений</h3>
+                    </div>
+                    <div class="submissions-list" id="submissionsList">
+                        <!-- Submissions will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Broadcast Panel -->
+                <div id="broadcastPanel" class="admin-panel">
+                    <div class="panel-header">
+                        <h3>Рассылка сообщений</h3>
+                    </div>
+                    <div class="broadcast-form">
+                        <div class="form-group">
+                            <label>Тип сообщения:</label>
+                            <select id="broadcastType">
+                                <option value="text">Текстовое сообщение</option>
+                                <option value="photo">Фото</option>
+                                <option value="video">Видео</option>
+                                <option value="gif">GIF</option>
+                            </select>
                         </div>
+                        <div class="form-group">
+                            <label>Текст сообщения:</label>
+                            <textarea id="broadcastText" placeholder="Введите текст для рассылки..."></textarea>
+                        </div>
+                        <div class="form-group" id="mediaInput" style="display: none;">
+                            <label>Медиа файл:</label>
+                            <input type="file" id="broadcastMedia" accept="image/*,video/*">
+                        </div>
+                        <button class="btn btn-primary" onclick="sendBroadcast()">
+                            <i class="fas fa-paper-plane"></i>
+                            Отправить рассылку
+                        </button>
                     </div>
                 </div>
             </div>
-        </div>
-    </section>
+        </section>
+    </main>
 
-    <!-- Модальные окна -->
+    <!-- Modals -->
     <div id="poemModal" class="modal">
         <div class="modal-content">
             <span class="close">&times;</span>
-            <div id="poemModalContent">
-                <!-- Содержимое стихотворения -->
+            <div class="poem-content">
+                <h3 id="modalPoemTitle"></h3>
+                <p id="modalPoemAuthor"></p>
+                <div id="modalPoemText" class="poem-text"></div>
+            </div>
+            <div class="poem-actions">
+                <button class="btn btn-secondary" onclick="saveToLibrary()">
+                    <i class="fas fa-heart"></i>
+                    Сохранить
+                </button>
+                <button class="btn btn-secondary" onclick="sharePoem()">
+                    <i class="fas fa-share"></i>
+                    Поделиться
+                </button>
             </div>
         </div>
     </div>
@@ -366,12 +398,12 @@
                     <input type="text" id="poemGenre">
                 </div>
                 <div class="form-group">
-                    <label>Превью:</label>
-                    <textarea id="poemPreview" rows="3"></textarea>
+                    <label>Текст:</label>
+                    <textarea id="poemText" required></textarea>
                 </div>
                 <div class="form-group">
-                    <label>Текст стихотворения:</label>
-                    <textarea id="poemContent" rows="10" required></textarea>
+                    <label>Загрузить из файла:</label>
+                    <input type="file" id="poemFile" accept=".txt,.doc,.docx,.pdf">
                 </div>
                 <button type="submit" class="btn btn-primary">Добавить</button>
             </form>
@@ -384,7 +416,7 @@
             <h3>Добавить автора</h3>
             <form id="addAuthorForm">
                 <div class="form-group">
-                    <label>Имя автора:</label>
+                    <label>Имя:</label>
                     <input type="text" id="authorName" required>
                 </div>
                 <div class="form-group">
@@ -400,7 +432,7 @@
         </div>
     </div>
 
-    <!-- Загрузчик -->
+    <!-- Loader -->
     <div id="loader" class="loader">
         <div class="loader-content">
             <div class="spinner"></div>

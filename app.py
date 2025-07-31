@@ -1,29 +1,28 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, render_template_string
 from flask_cors import CORS
 import sqlite3
 import os
-import json
-from datetime import datetime
-import uuid
-from werkzeug.utils import secure_filename
 import PyPDF2
-import docx
-import re
+from docx import Document
+from werkzeug.utils import secure_filename
+from datetime import datetime
+import json
 
 app = Flask(__name__)
 CORS(app)
 
-# Конфигурация
+# Configuration
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'doc', 'docx'}
 
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# Создаем папку для загрузок
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
 def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def get_db_connection():
     conn = sqlite3.connect('poetry.db')
@@ -34,19 +33,18 @@ def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Таблица пользователей
+    # Users table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
-            user_id INTEGER PRIMARY KEY,
+            id INTEGER PRIMARY KEY,
             username TEXT,
             first_name TEXT,
             last_name TEXT,
-            registration_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            notification_frequency TEXT DEFAULT 'none'
+            registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
     
-    # Таблица авторов
+    # Authors table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS authors (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -57,64 +55,147 @@ def init_db():
         )
     ''')
     
-    # Таблица стихов
+    # Poems table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS poems (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL,
-            content TEXT NOT NULL,
+            text TEXT NOT NULL,
             author_id INTEGER,
             genre TEXT,
-            preview TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (author_id) REFERENCES authors (id)
         )
     ''')
     
-    # Таблица личной библиотеки пользователей
+    # User library table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS user_library (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
             poem_id INTEGER,
-            added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users (user_id),
+            saved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id),
             FOREIGN KEY (poem_id) REFERENCES poems (id)
         )
     ''')
     
-    # Таблица избранных цитат пользователей
+    # User quotes table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS user_quotes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
             poem_id INTEGER,
-            quote_text TEXT NOT NULL,
+            quote_text TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users (user_id),
+            FOREIGN KEY (user_id) REFERENCES users (id),
             FOREIGN KEY (poem_id) REFERENCES poems (id)
         )
     ''')
     
-    # Таблица предложений от пользователей
+    # User submissions table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS user_submissions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER,
-            content TEXT NOT NULL,
+            text TEXT,
             status TEXT DEFAULT 'pending',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users (user_id)
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+    ''')
+    
+    # User notifications table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_notifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            frequency TEXT,
+            is_active BOOLEAN DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id)
         )
     ''')
     
     conn.commit()
     conn.close()
 
-# Инициализация базы данных
+# Initialize database
 init_db()
 
-# Статические файлы
+def extract_text_from_file(file):
+    """Extract text from various file formats"""
+    filename = secure_filename(file.filename)
+    file_extension = filename.rsplit('.', 1)[1].lower()
+    
+    if file_extension == 'txt':
+        return file.read().decode('utf-8')
+    
+    elif file_extension == 'pdf':
+        pdf_reader = PyPDF2.PdfReader(file)
+        text = ""
+        for page in pdf_reader.pages:
+            text += page.extract_text() + "\n"
+        return text
+    
+    elif file_extension in ['doc', 'docx']:
+        doc = Document(file)
+        text = ""
+        for paragraph in doc.paragraphs:
+            text += paragraph.text + "\n"
+        return text
+    
+    else:
+        raise ValueError(f"Unsupported file format: {file_extension}")
+
+def add_sample_data():
+    """Add sample data if database is empty"""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Check if we have any data
+    cursor.execute('SELECT COUNT(*) FROM poems')
+    poem_count = cursor.fetchone()[0]
+    
+    if poem_count == 0:
+        # Add sample authors
+        sample_authors = [
+            ('Александр Пушкин', 'Россия', 'Золотой век'),
+            ('Михаил Лермонтов', 'Россия', 'Золотой век'),
+            ('Анна Ахматова', 'Россия', 'Серебряный век'),
+            ('Сергей Есенин', 'Россия', 'Серебряный век'),
+            ('Марина Цветаева', 'Россия', 'Серебряный век')
+        ]
+        
+        for name, country, period in sample_authors:
+            cursor.execute('INSERT INTO authors (name, country, period) VALUES (?, ?, ?)',
+                         (name, country, period))
+        
+        # Get author IDs
+        cursor.execute('SELECT id FROM authors')
+        author_ids = [row[0] for row in cursor.fetchall()]
+        
+        # Add sample poems
+        sample_poems = [
+            ('Я помню чудное мгновенье', 'Я помню чудное мгновенье:\nПередо мной явилась ты,\nКак мимолетное виденье,\nКак гений чистой красоты.', author_ids[0], 'лирика'),
+            ('У лукоморья дуб зеленый', 'У лукоморья дуб зеленый;\nЗлатая цепь на дубе том:\nИ днем и ночью кот ученый\nВсе ходит по цепи кругом.', author_ids[0], 'эпика'),
+            ('Бородино', '— Скажи-ка, дядя, ведь не даром\nМосква, спаленная пожаром,\nФранцузу отдана?\nВедь были ж схватки боевые,\nДа, говорят, еще какие!\nНедаром помнит вся Россия\nПро день Бородина!', author_ids[1], 'эпика'),
+            ('Реквием', 'Нет, и не под чуждым небосводом,\nИ не под защитой чуждых крыл, —\nЯ была тогда с моим народом,\nТам, где мой народ, к несчастью, был.', author_ids[2], 'лирика'),
+            ('Не жалею, не зову, не плачу', 'Не жалею, не зову, не плачу,\nВсе пройдет, как с белых яблонь дым.\nУвяданья золотом охваченный,\nЯ не буду больше молодым.', author_ids[3], 'лирика')
+        ]
+        
+        for title, text, author_id, genre in sample_poems:
+            cursor.execute('INSERT INTO poems (title, text, author_id, genre) VALUES (?, ?, ?, ?)',
+                         (title, text, author_id, genre))
+        
+        conn.commit()
+    
+    conn.close()
+
+# Add sample data on first run
+add_sample_data()
+
+# Routes
 @app.route('/')
 def index():
     return send_from_directory('web', 'index.html')
@@ -123,38 +204,43 @@ def index():
 def serve_static(filename):
     return send_from_directory('web', filename)
 
-# API endpoints
-
-@app.route('/api/poems', methods=['GET'])
+# API Routes
+@app.route('/api/poems')
 def get_poems():
     conn = get_db_connection()
     cursor = conn.cursor()
     
     cursor.execute('''
-        SELECT p.*, a.name as author_name 
-        FROM poems p 
-        LEFT JOIN authors a ON p.author_id = a.id 
+        SELECT p.id, p.title, p.text, p.genre, a.name as author_name, a.id as author_id
+        FROM poems p
+        LEFT JOIN authors a ON p.author_id = a.id
         ORDER BY p.created_at DESC
     ''')
     
     poems = []
     for row in cursor.fetchall():
-        poem = dict(row)
-        poems.append(poem)
+        poems.append({
+            'id': row['id'],
+            'title': row['title'],
+            'text': row['text'],
+            'genre': row['genre'],
+            'author_name': row['author_name'],
+            'author_id': row['author_id']
+        })
     
     conn.close()
-    return jsonify({'poems': poems})
+    return jsonify(poems)
 
-@app.route('/api/poems/random', methods=['GET'])
+@app.route('/api/poems/random')
 def get_random_poem():
     conn = get_db_connection()
     cursor = conn.cursor()
     
     cursor.execute('''
-        SELECT p.*, a.name as author_name 
-        FROM poems p 
-        LEFT JOIN authors a ON p.author_id = a.id 
-        ORDER BY RANDOM() 
+        SELECT p.id, p.title, p.text, p.genre, a.name as author_name, a.id as author_id
+        FROM poems p
+        LEFT JOIN authors a ON p.author_id = a.id
+        ORDER BY RANDOM()
         LIMIT 1
     ''')
     
@@ -162,19 +248,26 @@ def get_random_poem():
     conn.close()
     
     if row:
-        return jsonify({'poem': dict(row)})
+        return jsonify({
+            'id': row['id'],
+            'title': row['title'],
+            'text': row['text'],
+            'genre': row['genre'],
+            'author_name': row['author_name'],
+            'author_id': row['author_id']
+        })
     else:
         return jsonify({'error': 'No poems found'}), 404
 
-@app.route('/api/poems/<int:poem_id>', methods=['GET'])
+@app.route('/api/poems/<int:poem_id>')
 def get_poem(poem_id):
     conn = get_db_connection()
     cursor = conn.cursor()
     
     cursor.execute('''
-        SELECT p.*, a.name as author_name 
-        FROM poems p 
-        LEFT JOIN authors a ON p.author_id = a.id 
+        SELECT p.id, p.title, p.text, p.genre, a.name as author_name, a.id as author_id
+        FROM poems p
+        LEFT JOIN authors a ON p.author_id = a.id
         WHERE p.id = ?
     ''', (poem_id,))
     
@@ -182,182 +275,219 @@ def get_poem(poem_id):
     conn.close()
     
     if row:
-        return jsonify({'poem': dict(row)})
+        return jsonify({
+            'id': row['id'],
+            'title': row['title'],
+            'text': row['text'],
+            'genre': row['genre'],
+            'author_name': row['author_name'],
+            'author_id': row['author_id']
+        })
     else:
         return jsonify({'error': 'Poem not found'}), 404
 
-@app.route('/api/authors', methods=['GET'])
+@app.route('/api/authors')
 def get_authors():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    cursor.execute('SELECT * FROM authors ORDER BY name')
+    cursor.execute('SELECT id, name, country, period FROM authors ORDER BY name')
     
     authors = []
     for row in cursor.fetchall():
-        authors.append(dict(row))
+        authors.append({
+            'id': row['id'],
+            'name': row['name'],
+            'country': row['country'],
+            'period': row['period']
+        })
     
     conn.close()
-    return jsonify({'authors': authors})
+    return jsonify(authors)
 
-@app.route('/api/authors/<int:author_id>/poems', methods=['GET'])
+@app.route('/api/authors/<int:author_id>/poems')
 def get_author_poems(author_id):
     conn = get_db_connection()
     cursor = conn.cursor()
     
     cursor.execute('''
-        SELECT p.*, a.name as author_name 
-        FROM poems p 
-        LEFT JOIN authors a ON p.author_id = a.id 
+        SELECT p.id, p.title, p.text, p.genre, a.name as author_name, a.id as author_id
+        FROM poems p
+        LEFT JOIN authors a ON p.author_id = a.id
         WHERE p.author_id = ?
         ORDER BY p.title
     ''', (author_id,))
     
     poems = []
     for row in cursor.fetchall():
-        poems.append(dict(row))
+        poems.append({
+            'id': row['id'],
+            'title': row['title'],
+            'text': row['text'],
+            'genre': row['genre'],
+            'author_name': row['author_name'],
+            'author_id': row['author_id']
+        })
     
     conn.close()
-    return jsonify({'poems': poems})
+    return jsonify(poems)
 
-@app.route('/api/stats', methods=['GET'])
+@app.route('/api/stats')
 def get_stats():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Статистика пользователей
-    cursor.execute('SELECT COUNT(*) as count FROM users')
-    total_users = cursor.fetchone()['count']
+    cursor.execute('SELECT COUNT(*) FROM users')
+    users = cursor.fetchone()[0]
     
-    # Статистика стихов
-    cursor.execute('SELECT COUNT(*) as count FROM poems')
-    total_poems = cursor.fetchone()['count']
+    cursor.execute('SELECT COUNT(*) FROM poems')
+    poems = cursor.fetchone()[0]
     
-    # Статистика авторов
-    cursor.execute('SELECT COUNT(*) as count FROM authors')
-    total_authors = cursor.fetchone()['count']
+    cursor.execute('SELECT COUNT(*) FROM authors')
+    authors = cursor.fetchone()[0]
     
-    # Статистика предложений
-    cursor.execute('SELECT COUNT(*) as count FROM user_submissions WHERE status = "pending"')
-    pending_submissions = cursor.fetchone()['count']
+    cursor.execute('SELECT COUNT(*) FROM user_submissions WHERE status = "pending"')
+    pending_submissions = cursor.fetchone()[0]
     
     conn.close()
     
     return jsonify({
-        'total_users': total_users,
-        'total_poems': total_poems,
-        'total_authors': total_authors,
+        'users': users,
+        'poems': poems,
+        'authors': authors,
         'pending_submissions': pending_submissions
     })
 
 @app.route('/api/library/save', methods=['POST'])
-def save_poem_to_library():
+def save_to_library():
     data = request.get_json()
+    user_id = data.get('user_id')
     poem_id = data.get('poem_id')
-    user_id = data.get('user_id', 1)  # Временное решение
+    
+    if not user_id or not poem_id:
+        return jsonify({'error': 'Missing user_id or poem_id'}), 400
     
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Проверяем, не сохранено ли уже
+    # Check if already saved
     cursor.execute('SELECT id FROM user_library WHERE user_id = ? AND poem_id = ?', (user_id, poem_id))
     if cursor.fetchone():
         conn.close()
-        return jsonify({'error': 'Poem already in library'}), 400
+        return jsonify({'message': 'Already in library'}), 200
     
     cursor.execute('INSERT INTO user_library (user_id, poem_id) VALUES (?, ?)', (user_id, poem_id))
     conn.commit()
     conn.close()
     
-    return jsonify({'message': 'Poem saved to library'})
+    return jsonify({'message': 'Saved to library'}), 201
 
-@app.route('/api/library/<int:user_id>', methods=['GET'])
+@app.route('/api/library/<int:user_id>')
 def get_user_library(user_id):
     conn = get_db_connection()
     cursor = conn.cursor()
     
     cursor.execute('''
-        SELECT p.*, a.name as author_name, ul.added_at
+        SELECT p.id, p.title, p.text, p.genre, a.name as author_name, a.id as author_id
         FROM user_library ul
         JOIN poems p ON ul.poem_id = p.id
         LEFT JOIN authors a ON p.author_id = a.id
         WHERE ul.user_id = ?
-        ORDER BY ul.added_at DESC
+        ORDER BY ul.saved_at DESC
     ''', (user_id,))
     
     poems = []
     for row in cursor.fetchall():
-        poems.append(dict(row))
+        poems.append({
+            'id': row['id'],
+            'title': row['title'],
+            'text': row['text'],
+            'genre': row['genre'],
+            'author_name': row['author_name'],
+            'author_id': row['author_id']
+        })
     
     conn.close()
-    return jsonify({'poems': poems})
+    return jsonify(poems)
 
-# Админ endpoints
-
-@app.route('/api/admin/poems', methods=['GET'])
+# Admin API Routes
+@app.route('/api/admin/poems')
 def admin_get_poems():
     conn = get_db_connection()
     cursor = conn.cursor()
     
     cursor.execute('''
-        SELECT p.*, a.name as author_name 
-        FROM poems p 
-        LEFT JOIN authors a ON p.author_id = a.id 
+        SELECT p.id, p.title, p.text, p.genre, a.name as author_name, a.id as author_id
+        FROM poems p
+        LEFT JOIN authors a ON p.author_id = a.id
         ORDER BY p.created_at DESC
     ''')
     
     poems = []
     for row in cursor.fetchall():
-        poems.append(dict(row))
+        poems.append({
+            'id': row['id'],
+            'title': row['title'],
+            'text': row['text'],
+            'genre': row['genre'],
+            'author_name': row['author_name'],
+            'author_id': row['author_id']
+        })
     
     conn.close()
-    return jsonify({'poems': poems})
+    return jsonify(poems)
 
 @app.route('/api/admin/poems', methods=['POST'])
 def admin_add_poem():
     data = request.get_json()
     
     title = data.get('title')
-    content = data.get('content')
+    text = data.get('text')
     author_id = data.get('author_id')
     genre = data.get('genre')
-    preview = data.get('preview')
     
-    if not title or not content:
-        return jsonify({'error': 'Title and content are required'}), 400
+    if not title or not text:
+        return jsonify({'error': 'Missing title or text'}), 400
     
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    cursor.execute('''
-        INSERT INTO poems (title, content, author_id, genre, preview)
-        VALUES (?, ?, ?, ?, ?)
-    ''', (title, content, author_id, genre, preview))
-    
+    cursor.execute('INSERT INTO poems (title, text, author_id, genre) VALUES (?, ?, ?, ?)',
+                   (title, text, author_id, genre))
     conn.commit()
     conn.close()
     
-    return jsonify({'message': 'Poem added successfully'})
+    return jsonify({'message': 'Poem added successfully'}), 201
 
-@app.route('/api/admin/authors', methods=['GET'])
+@app.route('/api/admin/poems/<int:poem_id>', methods=['DELETE'])
+def admin_delete_poem(poem_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('DELETE FROM poems WHERE id = ?', (poem_id,))
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'message': 'Poem deleted successfully'}), 200
+
+@app.route('/api/admin/authors')
 def admin_get_authors():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    cursor.execute('''
-        SELECT a.*, COUNT(p.id) as poems_count
-        FROM authors a
-        LEFT JOIN poems p ON a.id = p.author_id
-        GROUP BY a.id
-        ORDER BY a.name
-    ''')
+    cursor.execute('SELECT id, name, country, period FROM authors ORDER BY name')
     
     authors = []
     for row in cursor.fetchall():
-        authors.append(dict(row))
+        authors.append({
+            'id': row['id'],
+            'name': row['name'],
+            'country': row['country'],
+            'period': row['period']
+        })
     
     conn.close()
-    return jsonify({'authors': authors})
+    return jsonify(authors)
 
 @app.route('/api/admin/authors', methods=['POST'])
 def admin_add_author():
@@ -368,71 +498,66 @@ def admin_add_author():
     period = data.get('period')
     
     if not name:
-        return jsonify({'error': 'Name is required'}), 400
+        return jsonify({'error': 'Missing name'}), 400
     
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    cursor.execute('''
-        INSERT INTO authors (name, country, period)
-        VALUES (?, ?, ?)
-    ''', (name, country, period))
-    
+    cursor.execute('INSERT INTO authors (name, country, period) VALUES (?, ?, ?)',
+                   (name, country, period))
     conn.commit()
     conn.close()
     
-    return jsonify({'message': 'Author added successfully'})
+    return jsonify({'message': 'Author added successfully'}), 201
 
-@app.route('/api/admin/submissions', methods=['GET'])
+@app.route('/api/admin/authors/<int:author_id>', methods=['DELETE'])
+def admin_delete_author(author_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('DELETE FROM authors WHERE id = ?', (author_id,))
+    conn.commit()
+    conn.close()
+    
+    return jsonify({'message': 'Author deleted successfully'}), 200
+
+@app.route('/api/admin/submissions')
 def admin_get_submissions():
     conn = get_db_connection()
     cursor = conn.cursor()
     
     cursor.execute('''
-        SELECT us.*, u.username, u.first_name, u.last_name
+        SELECT us.id, us.text, u.first_name, u.username, us.created_at, us.status
         FROM user_submissions us
-        LEFT JOIN users u ON us.user_id = u.user_id
+        JOIN users u ON us.user_id = u.id
         WHERE us.status = 'pending'
         ORDER BY us.created_at DESC
     ''')
     
     submissions = []
     for row in cursor.fetchall():
-        submission = dict(row)
-        submission['user_name'] = submission.get('username') or submission.get('first_name') or 'Пользователь'
-        submissions.append(submission)
+        submissions.append({
+            'id': row['id'],
+            'text': row['text'],
+            'user_name': row['first_name'],
+            'username': row['username'],
+            'created_at': row['created_at'],
+            'status': row['status']
+        })
     
     conn.close()
-    return jsonify({'submissions': submissions})
+    return jsonify(submissions)
 
 @app.route('/api/admin/submissions/<int:submission_id>/approve', methods=['POST'])
 def admin_approve_submission(submission_id):
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Получаем данные предложения
-    cursor.execute('SELECT user_id, content FROM user_submissions WHERE id = ?', (submission_id,))
-    row = cursor.fetchone()
-    
-    if not row:
-        conn.close()
-        return jsonify({'error': 'Submission not found'}), 404
-    
-    user_id, content = row['user_id'], row['content']
-    
-    # Обновляем статус предложения
     cursor.execute('UPDATE user_submissions SET status = "approved" WHERE id = ?', (submission_id,))
-    
-    # Добавляем стихотворение
-    cursor.execute('''
-        INSERT INTO poems (title, content, author_id)
-        VALUES (?, ?, NULL)
-    ''', ("Предложенное стихотворение", content))
-    
     conn.commit()
     conn.close()
     
-    return jsonify({'message': 'Submission approved'})
+    return jsonify({'message': 'Submission approved'}), 200
 
 @app.route('/api/admin/submissions/<int:submission_id>/reject', methods=['POST'])
 def admin_reject_submission(submission_id):
@@ -443,20 +568,18 @@ def admin_reject_submission(submission_id):
     conn.commit()
     conn.close()
     
-    return jsonify({'message': 'Submission rejected'})
+    return jsonify({'message': 'Submission rejected'}), 200
 
 @app.route('/api/admin/broadcast', methods=['POST'])
 def admin_broadcast():
+    # This is a placeholder for the actual broadcast functionality
+    # In a real implementation, this would integrate with the Telegram bot
     data = request.form
     broadcast_type = data.get('type', 'text')
     text = data.get('text', '')
     
-    if not text:
-        return jsonify({'error': 'Text is required'}), 400
-    
-    # Здесь должна быть логика отправки сообщений всем пользователям
-    # Пока просто возвращаем успех
-    return jsonify({'message': 'Broadcast sent successfully'})
+    # For now, just return success
+    return jsonify({'message': f'Broadcast sent: {broadcast_type}'}), 200
 
 @app.route('/api/admin/upload-poem', methods=['POST'])
 def admin_upload_poem():
@@ -468,122 +591,30 @@ def admin_upload_poem():
         return jsonify({'error': 'No file selected'}), 400
     
     if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(filepath)
-        
-        # Извлекаем текст из файла
-        content = extract_text_from_file(filepath)
-        
-        # Удаляем временный файл
-        os.remove(filepath)
-        
-        if content:
-            # Добавляем в базу данных
+        try:
+            # Extract text from file
+            text = extract_text_from_file(file)
+            
+            # Get other form data
+            title = request.form.get('title', 'Uploaded Poem')
+            author_id = request.form.get('author_id')
+            genre = request.form.get('genre', 'лирика')
+            
+            # Save to database
             conn = get_db_connection()
             cursor = conn.cursor()
             
-            # Пытаемся извлечь название из первой строки
-            lines = content.split('\n')
-            title = lines[0].strip() if lines else "Загруженное стихотворение"
-            
-            cursor.execute('''
-                INSERT INTO poems (title, content)
-                VALUES (?, ?)
-            ''', (title, content))
-            
+            cursor.execute('INSERT INTO poems (title, text, author_id, genre) VALUES (?, ?, ?, ?)',
+                          (title, text, author_id, genre))
             conn.commit()
             conn.close()
             
-            return jsonify({'message': 'File processed successfully'})
-        else:
-            return jsonify({'error': 'Could not extract text from file'}), 400
+            return jsonify({'message': 'Poem uploaded successfully'}), 201
+            
+        except Exception as e:
+            return jsonify({'error': f'Error processing file: {str(e)}'}), 500
     
     return jsonify({'error': 'Invalid file type'}), 400
 
-def extract_text_from_file(filepath):
-    """Извлекает текст из различных типов файлов"""
-    try:
-        ext = filepath.rsplit('.', 1)[1].lower()
-        
-        if ext == 'txt':
-            with open(filepath, 'r', encoding='utf-8') as f:
-                return f.read()
-        
-        elif ext == 'pdf':
-            with open(filepath, 'rb') as f:
-                pdf_reader = PyPDF2.PdfReader(f)
-                text = ""
-                for page in pdf_reader.pages:
-                    text += page.extract_text() + "\n"
-                return text
-        
-        elif ext in ['doc', 'docx']:
-            doc = docx.Document(filepath)
-            text = ""
-            for paragraph in doc.paragraphs:
-                text += paragraph.text + "\n"
-            return text
-        
-        else:
-            return None
-    
-    except Exception as e:
-        print(f"Error extracting text: {e}")
-        return None
-
-# Добавление тестовых данных
-def add_sample_data():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    # Проверяем, есть ли уже данные
-    cursor.execute('SELECT COUNT(*) FROM poems')
-    if cursor.fetchone()[0] > 0:
-        conn.close()
-        return
-    
-    # Добавляем авторов
-    authors_data = [
-        ('Александр Пушкин', 'Россия', 'Золотой век'),
-        ('Михаил Лермонтов', 'Россия', 'Золотой век'),
-        ('Анна Ахматова', 'Россия', 'Серебряный век'),
-        ('Сергей Есенин', 'Россия', 'Серебряный век'),
-        ('Марина Цветаева', 'Россия', 'Серебряный век')
-    ]
-    
-    for name, country, period in authors_data:
-        cursor.execute('INSERT INTO authors (name, country, period) VALUES (?, ?, ?)', (name, country, period))
-    
-    # Получаем ID авторов
-    cursor.execute('SELECT id FROM authors')
-    author_ids = [row[0] for row in cursor.fetchall()]
-    
-    # Добавляем стихотворения
-    poems_data = [
-        ('Я помню чудное мгновенье', 'Я помню чудное мгновенье:\nПередо мной явилась ты,\nКак мимолетное виденье,\nКак гений чистой красоты.', author_ids[0], 'Лирика'),
-        ('У лукоморья дуб зеленый', 'У лукоморья дуб зеленый;\nЗлатая цепь на дубе том:\nИ днем и ночью кот ученый\nВсе ходит по цепи кругом.', author_ids[0], 'Сказка'),
-        ('Бородино', '— Скажи-ка, дядя, ведь не даром\nМосква, спаленная пожаром,\nФранцузу отдана?', author_ids[1], 'Патриотическая лирика'),
-        ('Родина', 'Люблю отчизну я, но странною любовью!\nНе победит ее рассудок мой.', author_ids[1], 'Патриотическая лирика'),
-        ('Муза', 'Когда я ночью жду ее прихода,\nЖизнь, кажется, висит на волоске.', author_ids[2], 'Лирика'),
-        ('Береза', 'Белая береза\nПод моим окном\nПринакрылась снегом,\nТочно серебром.', author_ids[3], 'Пейзажная лирика'),
-        ('Письмо к женщине', 'Вы помните,\nВы все, конечно, помните,\nКак я стоял,\nПриблизившись к стене.', author_ids[3], 'Лирика'),
-        ('Молитва', 'В час, когда над миром\nБог склоняет лик,\nИ звезда с звездою\nГоворит навек.', author_ids[4], 'Философская лирика')
-    ]
-    
-    for title, content, author_id, genre in poems_data:
-        preview = content.split('\n')[0] + '...'
-        cursor.execute('''
-            INSERT INTO poems (title, content, author_id, genre, preview)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (title, content, author_id, genre, preview))
-    
-    conn.commit()
-    conn.close()
-    print("Sample data added successfully!")
-
 if __name__ == '__main__':
-    # Добавляем тестовые данные при первом запуске
-    add_sample_data()
-    
     app.run(debug=True, host='0.0.0.0', port=5000)
